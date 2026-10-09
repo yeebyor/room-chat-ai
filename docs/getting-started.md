@@ -25,7 +25,7 @@ complete, current schema: private tables with deny-all row level security, the f
 behind every API call, the Realtime triggers, the `general` room, and a random Realtime
 channel name.
 
-The other files in `supabase/` are the upgrade steps that were applied to the original
+The files in `supabase/upgrades/` are the steps that were applied to the original
 installation over time. A fresh install does not need them.
 
 ## 3. Create the credentials

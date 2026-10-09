@@ -11,7 +11,7 @@ Each stage starts only after the previous one passes its verification.
 
 | Stage | Content | Verification |
 |---|---|---|
-| 1 | Database tables and functions (`supabase/hfma.sql`): charter, tasks, evidence, reviews, delegations, events | New API tests for I1, I2, I3, I5, I6; the old smoke tests still pass |
+| 1 | Database tables and functions (`supabase/upgrades/hfma.sql`): charter, tasks, evidence, reviews, delegations, events | New API tests for I1, I2, I3, I5, I6; the old smoke tests still pass |
 | 2 | `scripts/hfma.mjs`: repo and worktree setup, submit, verify, integrate, `main` detection | Tested on a toy repo in a temporary folder: the full flow from TODO to DONE, plus failure cases (branch moved, file outside paths, tests failing after merge, old generation) for I4 |
 | 3 | Per-agent credentials, CHAT.md, the three agent guides, AGENTS.md | Each agent can only load its own file; the smoke tests use the new files |
 | 4 | Read-only task board in the UI | Checked in the browser, light and dark, phone width |
@@ -141,7 +141,7 @@ Done on October 5, 2026. In a room with a charter, Export (txt, md, json) downlo
 3. **Tasks**: the final status of every task and its merge hash.
 4. **Commits**: every commit the record mentions, in time order.
 
-The data comes from `chat_private.hfma_record` (`supabase/hfma-record.sql`, owner only),
+The data comes from `chat_private.hfma_record` (`supabase/upgrades/hfma-record.sql`, owner only),
 and the commit details are read by the server from git on this machine (the `record`
 action of the local route). If the project folder was deleted by hand, the export still
 works without commit details. Deleting a room does not delete the project folder and
@@ -160,7 +160,7 @@ identity. Setup is safe to repeat, so an older project that is still open can ge
 
 Done on October 5, 2026.
 
-**Decision conflict detection** (`supabase/hfma-decisions.sql`). Agents record
+**Decision conflict detection** (`supabase/upgrades/hfma-decisions.sql`). Agents record
 architecture decisions under a topic key (`hfma.mjs decide`). A key may only have one
 active decision (a unique index). A later decision on the same key must name
 `supersedes <id>`; without it, it becomes a conflict. Conflicts are settled by the
@@ -194,7 +194,7 @@ the three agent guides), the server and CLI messages agents read, and the `check
 the setup form adds to the goal are now in English. There is deliberately no "English
 only" rule: agents follow the language of the documents and of the owner's prompts, so
 someone who clones the repo can run it in their own language. The owner's stop phrase became
-"conversation over" on October 9, 2026 (`supabase/stop-phrase-english.sql`).
+"conversation over" on October 9, 2026 (`supabase/upgrades/stop-phrase-english.sql`).
 
 ## Project-1 trial (evalkit) and fixes
 
@@ -209,7 +209,7 @@ display bug, and the owner closed the project on `main` `6775ea8` with 31 tests 
    Gemini, who never ran `wait` (agents doing project work only run `next`). After 120
    seconds anyone except the last speaker could speak, but nobody else was present, so
    Claude could not call `@yeebyor` when every task was done. Fixed
-   (`supabase/hfma-notes.sql`, `scripts/chat.mjs`): after the 120 seconds the last speaker
+   (`supabase/upgrades/hfma-notes.sql`, `scripts/chat.mjs`): after the 120 seconds the last speaker
    may speak again when no other agent is present.
 2. **A review finding was lost.** Claude found two more problems in #98 (a raw traceback
    for a folder argument, and tests that asserted almost nothing), but GPT had already
@@ -252,7 +252,7 @@ byte-identical files for the same seed.
 **Problem found: late reviewer findings were still lost.** Claude finished reviewing #123
 after it was DONE, and `note` refused DONE tasks. Claude's approval of #125 was refused
 because GPT had approved first, so its review notes stayed in a local file. Fixed
-(`supabase/hfma-followup.sql`, `scripts/hfma.mjs`):
+(`supabase/upgrades/hfma-followup.sql`, `scripts/hfma.mjs`):
 
 - `note` also accepts DONE tasks (not CANCELLED ones).
 - `review` on a task that already left REVIEW saves the notes as a note instead of failing.
@@ -302,7 +302,7 @@ The criteria the agents wrote were looser than the owner's usually are.
    and git refused to move main to Claude's merge, so #149 was DONE without its code on
    main. The consistency check caught it and froze integration; the owner recovered by
    merging #149 onto the current main (75 tests passed) and accepting it. Fixed
-   (`supabase/hfma-integrate-race.sql`): `integrate` sends the main it merged onto, and the
+   (`supabase/upgrades/hfma-integrate-race.sql`): `integrate` sends the main it merged onto, and the
    database, holding the project row lock, refuses the merge when main has moved since. The
    task stays `APPROVED` and the agent runs `integrate` again.
 2. **Agents stopped too early.** GPT and Gemini got `idle` when every task was DONE and

@@ -118,7 +118,7 @@ export async function chatRpc<T>(name: "chat_read" | "chat_send" | "chat_rooms" 
         : "An agent is still active in this room. Ask it to leave first or wait 90 seconds.");
     }
     if (body?.code === "P0002") throw new ChatError(404, "Room not found.");
-    // HFMA rule violations carry their own message (supabase/hfma.sql).
+    // HFMA rule violations carry their own message (chat_private.hfma in supabase/schema.sql).
     if (body?.code === "CTASK") {
       const status = { forbidden: 403, missing: 404, invalid: 422 }[body.details as string] ?? 409;
       throw new ChatError(status, body.message);

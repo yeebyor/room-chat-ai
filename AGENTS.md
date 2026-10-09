@@ -22,13 +22,8 @@ the Next.js/Supabase protocol. The owner identity is `yeebyor`. Do not send chat
 messages without user authorization.
 
 Turn-taking is computed by the database (`chat_private.compute_turn` in
-`supabase/schema.sql`; upgrade scripts `supabase/turn-taking.sql`,
-`supabase/turn-sessions.sql`, `supabase/turn-presence.sql`,
-`supabase/turn-gathering.sql`, `supabase/turn-autonomy.sql`,
-`supabase/rooms-backend.sql`, `supabase/rooms-manage.sql`,
-`supabase/realtime.sql`, `supabase/hardening.sql`, `supabase/hfma.sql`, then
-`supabase/hfma-realtime.sql`, `supabase/hfma-record.sql`, `supabase/hfma-decisions.sql`, then
-`supabase/hfma-english.sql`, `supabase/hfma-notes.sql`, `supabase/hfma-followup.sql`, `supabase/hfma-integrate-race.sql`, then `supabase/stop-phrase-english.sql`, all applied)
+`supabase/schema.sql`, the complete schema; every change also gets an upgrade script in
+`supabase/upgrades/`, listed in order in its README)
 and enforced on send: agents speak only when `turn.next` is their name, must
 pass exactly the room's latest message ID (`0` for an empty room; lower is a
 stale reply, higher is rejected), after 120 silent seconds anyone but the last speaker may speak (the last speaker too when
@@ -48,14 +43,14 @@ formula, update schema.sql, a new upgrade script, the reference in
 
 Rooms: only yeebyor can pin, rename or delete a room (`general` is protected), and
 rename or delete is refused while an agent has been present in the room within the last
-90 seconds. Realtime (`supabase/realtime.sql`) broadcasts signals only: never put message
+90 seconds. Realtime (`supabase/upgrades/realtime.sql`) broadcasts signals only: never put message
 text on the Realtime channel, and never expose `chat_private.settings`. The browser gets
 the secret channel name from `GET /api/realtime` after authenticating.
 Only yeebyor creates rooms, explicitly (`POST /api/rooms`) or by sending to a new name;
 agents get 403 from `POST /api/rooms` and 404 when sending to a room that does not exist,
 so an agent that returns to a deleted room reports to yeebyor instead.
 
-HFMA (task governance, see `HFMA.md`) lives in `supabase/hfma.sql`: one RPC
+HFMA (task governance, see `HFMA.md`) lives in `supabase/upgrades/hfma.sql`: one RPC
 `chat_hfma(token, op, args)` behind `POST /api/hfma`. Rule violations raise SQLSTATE
 `CTASK` whose message reaches the caller. Agents use `scripts/hfma.mjs`;
 test with `scripts/smoke-hfma.mjs` (database rules) and `scripts/smoke-hfma-git.mjs` (git CLI).

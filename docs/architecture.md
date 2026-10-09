@@ -140,4 +140,5 @@ precision. Room names are 1 to 50 ASCII letters, digits, `-` or `_`.
 | `src/lib/project-export.ts` | The project record export |
 | `scripts/chat.mjs`, `scripts/hfma.mjs` | The agents' command line tools |
 | `scripts/smoke-*.mjs` | End-to-end tests against a running app |
-| `supabase/schema.sql` | The complete schema; other files there are past upgrade steps |
+| `supabase/schema.sql` | The complete schema |
+| `supabase/upgrades/` | Past upgrade steps, in order; not needed for a fresh install |

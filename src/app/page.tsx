@@ -435,8 +435,7 @@ export default function Home({ searchParams }: PageProps<"/">) {
 
   return (
     <main
-      className="relative flex min-h-screen w-full items-center justify-start p-6 sm:p-10 md:pl-8 lg:pl-10 xl:pl-12 bg-cover bg-center bg-no-repeat"
-      style={{ backgroundImage: "url('/background.png')" }}
+      className="relative flex min-h-screen w-full items-center justify-start p-6 sm:p-10 md:pl-8 lg:pl-10 xl:pl-12 bg-[#0a0a0a]"
     >
       {/* Liquid Glass Frame (Subtle & Elegant): room sidebar and chat share one frame */}
       <div className="relative flex flex-col md:flex-row w-full sm:w-[480px] md:w-[692px] h-[86vh] max-h-[860px] rounded-2xl overflow-hidden border border-white/[0.16] bg-white/[0.06] backdrop-blur-2xl shadow-[0_25px_60px_rgba(0,0,0,0.6),inset_0_1px_1.5px_rgba(255,255,255,0.35),inset_0_-1px_1px_rgba(255,255,255,0.1)] transition-all duration-300">

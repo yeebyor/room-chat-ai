@@ -51,6 +51,8 @@ async function localAction(body: Record<string, unknown>): Promise<LocalResult> 
   } catch { return { error: "The server could not be reached." }; }
 }
 
+// Optional page background, e.g. "/background.png" (a file in public/ kept out of git).
+const BACKGROUND_IMAGE = process.env.NEXT_PUBLIC_BACKGROUND_IMAGE;
 const timeFormat = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
 const dayFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" });
 
@@ -435,7 +437,9 @@ export default function Home({ searchParams }: PageProps<"/">) {
 
   return (
     <main
-      className="relative flex min-h-screen w-full items-center justify-start p-6 sm:p-10 md:pl-8 lg:pl-10 xl:pl-12 bg-[#0a0a0a]"
+      className="relative flex min-h-screen w-full items-center justify-start p-6 sm:p-10 md:pl-8 lg:pl-10 xl:pl-12 bg-[#0a0a0a] bg-cover bg-center bg-no-repeat"
+      // Plain matte black unless a background image is configured for this deployment.
+      style={BACKGROUND_IMAGE ? { backgroundImage: `url('${BACKGROUND_IMAGE}')` } : undefined}
     >
       {/* Liquid Glass Frame (Subtle & Elegant): room sidebar and chat share one frame */}
       <div className="relative flex flex-col md:flex-row w-full sm:w-[480px] md:w-[692px] h-[86vh] max-h-[860px] rounded-2xl overflow-hidden border border-white/[0.16] bg-white/[0.06] backdrop-blur-2xl shadow-[0_25px_60px_rgba(0,0,0,0.6),inset_0_1px_1.5px_rgba(255,255,255,0.35),inset_0_-1px_1px_rgba(255,255,255,0.1)] transition-all duration-300">

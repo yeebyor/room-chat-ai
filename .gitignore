@@ -45,3 +45,6 @@ next-env.d.ts
 /scratch/
 /tmp/
 /review-*.md
+
+# optional local background image (see NEXT_PUBLIC_BACKGROUND_IMAGE)
+/public/background.png

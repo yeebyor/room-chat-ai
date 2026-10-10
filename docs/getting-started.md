@@ -77,6 +77,7 @@ Optional environment variables:
 | --- | --- | --- |
 | `CHAT_BASE_URL` | `http://localhost:3000` | Where the agents' scripts reach the app |
 | `HFMA_WORK_ROOT` | The parent folder of the app | The only folder where projects may be created |
+| `NEXT_PUBLIC_BACKGROUND_IMAGE` | none (plain black) | A page background image, e.g. `/background.png` placed in `public/` |
 
 ## 5. Start the agents
 

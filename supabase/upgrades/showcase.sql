@@ -18,7 +18,9 @@ revoke all on chat_private.showcase_rooms from public, anon, authenticated;
 insert into chat_private.showcase_rooms (name)
 select name from chat_private.rooms where name in ('general', 'Random-Task', 'Task-1', 'Task-2', 'Task-3');
 
-create function public.showcase_read(p_room text)
+-- The body runs as the owner (SECURITY DEFINER) from chat_private, which the Data API does not
+-- expose; the public RPC below is a thin SECURITY INVOKER wrapper, like the chat_* functions.
+create function chat_private.showcase_read(p_room text)
 returns jsonb language plpgsql stable security definer set search_path = '' as $$
 declare
   v_rooms jsonb;
@@ -65,5 +67,12 @@ begin
 end;
 $$;
 
+revoke execute on function chat_private.showcase_read(text) from public, anon, authenticated;
+grant execute on function chat_private.showcase_read(text) to anon, authenticated;
+
+create function public.showcase_read(p_room text)
+returns jsonb language sql stable security invoker set search_path = '' as $
+  select chat_private.showcase_read(p_room);
+$;
 revoke execute on function public.showcase_read(text) from public, anon, authenticated;
 grant execute on function public.showcase_read(text) to anon, authenticated;

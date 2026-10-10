@@ -11,9 +11,9 @@ import { CHECK, CHECK_RULE } from "./project-setup";
 // added here may edit every file ("**") and gets its worktree right after saving.
 const AGENTS: Agent[] = ["Claude", "GPT", "Gemini"];
 const focusRing = "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40";
-const field = "w-full rounded-lg border border-white/15 bg-white/[0.08] px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none focus:border-white/35 disabled:opacity-60";
+const field = "w-full rounded-md border border-white/15 bg-white/[0.08] px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none focus:border-white/35 disabled:opacity-60";
 const label = "mb-1.5 block text-xs font-medium tracking-wide text-zinc-300";
-const smallButton = `rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-1 text-xs text-zinc-200 transition-colors hover:bg-white/[0.14] hover:text-white disabled:opacity-50 ${focusRing}`;
+const smallButton = `rounded-md border border-white/15 bg-white/[0.06] px-2.5 py-1 text-xs text-zinc-200 transition-colors hover:bg-white/[0.14] hover:text-white disabled:opacity-50 ${focusRing}`;
 
 type Criterion = { id: string; text: string; check: "command" | "owner"; command?: string };
 type Charter = { goal: string; orchestrator: Agent; test_command: string; criteria: Criterion[]; ownership: Record<string, string[]>; [key: string]: unknown };
@@ -53,7 +53,7 @@ export function CharterEditor({ board, onAction, onLocal, onDone }: {
   }, [board.room]);
 
   if (!charter) {
-    return <div className="mb-3 rounded-xl border border-white/20 bg-white/[0.06] p-3 text-xs text-zinc-300">{error || "Loading the charter..."}</div>;
+    return <div className="mb-3 rounded-md border border-white/20 bg-white/[0.06] p-3 text-xs text-zinc-300">{error || "Loading the charter..."}</div>;
   }
 
   const toggle = (agent: Agent) => {
@@ -96,7 +96,7 @@ export function CharterEditor({ board, onAction, onLocal, onDone }: {
   };
 
   return (
-    <form onSubmit={save} className="mb-3 space-y-3 rounded-xl border border-white/20 bg-white/[0.06] p-3" aria-label="Edit charter">
+    <form onSubmit={save} className="mb-3 space-y-3 rounded-md border border-white/20 bg-white/[0.06] p-3" aria-label="Edit charter">
       <div>
         <p className="text-sm text-white">Edit charter</p>
         <p className="mt-0.5 text-xs text-zinc-400">Saving creates version {(board.charter_version ?? 0) + 1}. Closing always checks the latest version.</p>
@@ -139,7 +139,7 @@ export function CharterEditor({ board, onAction, onLocal, onDone }: {
               <input value={row.text} onChange={(event) => setOwned(owned.map((item, i) => i === index ? { ...item, text: event.target.value } : item))}
                 maxLength={2000} disabled={busy} aria-label={`Criterion ${row.id ?? "new"}`} className={`${field} py-1.5`} />
               <button type="button" onClick={() => setOwned(owned.filter((_, i) => i !== index))} disabled={busy}
-                aria-label={`Remove criterion ${row.id ?? "new"}`} className={`shrink-0 rounded-lg p-1.5 text-zinc-400 hover:bg-white/10 hover:text-white ${focusRing}`}>
+                aria-label={`Remove criterion ${row.id ?? "new"}`} className={`shrink-0 rounded-md p-1.5 text-zinc-400 hover:bg-white/10 hover:text-white ${focusRing}`}>
                 <X className="h-3.5 w-3.5" />
               </button>
             </li>

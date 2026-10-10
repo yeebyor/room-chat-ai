@@ -441,12 +441,15 @@ export default function Home({ searchParams }: PageProps<"/">) {
       // Plain matte black unless a background image is configured for this deployment.
       style={BACKGROUND_IMAGE ? { backgroundImage: `url('${BACKGROUND_IMAGE}')` } : undefined}
     >
-      {/* Liquid Glass Frame (Subtle & Elegant): room sidebar and chat share one frame */}
-      <div className="relative flex flex-col md:flex-row w-full sm:w-[480px] md:w-[692px] h-[86vh] max-h-[860px] rounded-2xl overflow-hidden border border-white/[0.16] bg-white/[0.06] backdrop-blur-2xl shadow-[0_25px_60px_rgba(0,0,0,0.6),inset_0_1px_1.5px_rgba(255,255,255,0.35),inset_0_-1px_1px_rgba(255,255,255,0.1)] transition-all duration-300">
-        
-        {/* Soft Glass Bevel Highlight */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-white/[0.09] to-transparent rounded-t-2xl" />
-
+      {/* Matte window frame: room sidebar and chat share it, like the frames on yeebyor.org */}
+      <div className="relative flex flex-col w-full sm:w-[480px] md:w-[692px] h-[86vh] max-h-[860px] rounded-md overflow-hidden border border-white/25 bg-[#0a0a0a]">
+        <div className="flex h-[26px] shrink-0 items-center gap-1.5 border-b border-white/15 px-3">
+          <span aria-hidden className="h-2 w-2 rounded-full bg-white/30" />
+          <span aria-hidden className="h-2 w-2 rounded-full bg-white/30" />
+          <span aria-hidden className="h-2 w-2 rounded-full bg-white/30" />
+          <h1 className="ml-1.5 font-mono text-xs font-normal tracking-[0.05em] text-white/50">room-chat-ai</h1>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <RoomSidebar activeRoom={activeRoom} rooms={rooms} onSelect={switchRoom} onCreate={createRoom} onTogglePin={togglePin} onRename={renameRoom} onDelete={deleteRoom} />
 
         {/* Inner Content Area */}
@@ -502,20 +505,20 @@ export default function Home({ searchParams }: PageProps<"/">) {
                   aria-expanded={menuOpen}
                   aria-label="Export chat"
                   title="Export chat"
-                  className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/[0.08] px-3.5 text-sm text-zinc-200 backdrop-blur-md shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-all hover:border-white/35 hover:bg-white/[0.16] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex items-center gap-1.5 rounded-md border border-white/15 bg-white/[0.08] px-3.5 text-sm text-zinc-200 transition-all hover:border-white/35 hover:bg-white/[0.16] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                   Export
                 </button>
                 {menuOpen && (
-                  <div role="menu" className="absolute bottom-full left-0 z-20 mb-2 w-56 overflow-hidden rounded-xl border border-white/20 p-1 shadow-[0_12px_30px_rgba(0,0,0,0.55)]" style={{ backgroundColor: "#18181b" }}>
+                  <div role="menu" className="absolute bottom-full left-0 z-20 mb-2 w-56 overflow-hidden rounded-md border border-white/20 p-1 shadow-[0_12px_30px_rgba(0,0,0,0.55)]" style={{ backgroundColor: "#18181b" }}>
                     {EXPORT_FORMATS.map((item) => (
                       <button
                         key={item.id}
                         type="button"
                         role="menuitem"
                         onClick={() => void handleExport(item.id)}
-                        className="flex w-full flex-col rounded-lg px-3 py-2 text-left transition-colors hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+                        className="flex w-full flex-col rounded-md px-3 py-2 text-left transition-colors hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
                       >
                         <span className="text-sm text-white">{item.label}</span>
                         <span className="text-xs text-zinc-400">{item.hint}</span>
@@ -531,7 +534,7 @@ export default function Home({ searchParams }: PageProps<"/">) {
                   aria-pressed={showTasks}
                   aria-label={showTasks ? "Show chat" : hasBoard ? "Show tasks" : "Set up project"}
                   title={showTasks ? "Show chat" : hasBoard ? "Show tasks" : "Set up project"}
-                  className={`flex items-center gap-1.5 rounded-xl border px-3.5 text-sm backdrop-blur-md shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)] transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40 ${
+                  className={`flex items-center gap-1.5 rounded-md border px-3.5 text-sm transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40 ${
                     showTasks ? "border-white/35 bg-white/[0.18] text-white" : "border-white/15 bg-white/[0.08] text-zinc-200 hover:border-white/35 hover:bg-white/[0.16]"
                   }`}
                 >
@@ -541,7 +544,7 @@ export default function Home({ searchParams }: PageProps<"/">) {
                 </button>
               )}
               <form onSubmit={handleSend} className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.08] p-2 pl-4 backdrop-blur-md transition-all focus-within:border-white/35 focus-within:bg-white/[0.12] focus-within:ring-1 focus-within:ring-white/20 shadow-[inset_0_1px_2px_rgba(255,255,255,0.1)]">
+            <div className="flex items-center gap-2 rounded-md border border-white/15 bg-white/[0.08] p-2 pl-4 transition-all focus-within:border-white/35 focus-within:bg-white/[0.12] focus-within:ring-1 focus-within:ring-white/20">
               <input
                 type="text"
                 value={inputMessage}
@@ -554,7 +557,7 @@ export default function Home({ searchParams }: PageProps<"/">) {
               <button
                 type="submit"
                 disabled={!inputMessage.trim() || !ready || sending}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-white backdrop-blur-md shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.45),0_4px_12px_rgba(0,0,0,0.3)] transition-all hover:bg-white/20 hover:border-white/40 hover:shadow-[inset_0_1px_2px_rgba(255,255,255,0.6),0_6px_16px_rgba(0,0,0,0.4)] active:scale-95 disabled:opacity-30 disabled:border-white/10 disabled:hover:bg-white/10 disabled:cursor-not-allowed"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/20 bg-white/10 text-white transition-all hover:bg-white/20 hover:border-white/40 active:scale-95 disabled:opacity-30 disabled:border-white/10 disabled:hover:bg-white/10 disabled:cursor-not-allowed"
                 aria-label="Send message"
               >
                 <Send className="h-4 w-4" />
@@ -564,6 +567,7 @@ export default function Home({ searchParams }: PageProps<"/">) {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </main>
   );

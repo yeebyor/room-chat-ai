@@ -22,9 +22,9 @@ export const CHECK_RULE ="HFMA rule: the first task creates check.mjs in the pro
   + "(for example pytest or npm test, including installing the dependencies they need) and exits with code 0 only when all of them pass. "
   + `The CLI runs ${CHECK} on every submit, verify, integrate and close.`;
 const focusRing = "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40";
-const field = "w-full rounded-lg border border-white/15 bg-white/[0.08] px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none focus:border-white/35 disabled:opacity-60";
+const field = "w-full rounded-md border border-white/15 bg-white/[0.08] px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none focus:border-white/35 disabled:opacity-60";
 const label = "mb-1.5 block text-xs font-medium tracking-wide text-zinc-300";
-const smallButton = `rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-1 text-xs text-zinc-200 transition-colors hover:bg-white/[0.14] hover:text-white disabled:opacity-50 ${focusRing}`;
+const smallButton = `rounded-md border border-white/15 bg-white/[0.06] px-2.5 py-1 text-xs text-zinc-200 transition-colors hover:bg-white/[0.14] hover:text-white disabled:opacity-50 ${focusRing}`;
 
 export function ProjectSetup({ room, onSetup }: { room: string; onSetup: (body: Record<string, unknown>) => Promise<LocalResult> }) {
   const [goal, setGoal] = useState("");
@@ -107,7 +107,7 @@ export function ProjectSetup({ room, onSetup }: { room: string; onSetup: (body: 
                 maxLength={2000} disabled={busy} placeholder={index === 0 ? "e.g. The report is easy for me to understand" : ""}
                 aria-label={`Criterion C${index + 1}`} className={`${field} py-1.5`} />
               <button type="button" onClick={() => setCriteria(criteria.filter((_, i) => i !== index))} disabled={busy || criteria.length === 1}
-                aria-label={`Remove criterion C${index + 1}`} className={`shrink-0 rounded-lg p-1.5 text-zinc-400 hover:bg-white/10 hover:text-white disabled:opacity-30 ${focusRing}`}>
+                aria-label={`Remove criterion C${index + 1}`} className={`shrink-0 rounded-md p-1.5 text-zinc-400 hover:bg-white/10 hover:text-white disabled:opacity-30 ${focusRing}`}>
                 <X className="h-3.5 w-3.5" />
               </button>
             </li>
@@ -121,7 +121,7 @@ export function ProjectSetup({ room, onSetup }: { room: string; onSetup: (body: 
 
       {error && <p role="alert" className="text-xs text-red-200">{error}</p>}
       <button type="submit" disabled={busy}
-        className={`flex w-full items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/[0.14] px-4 py-2.5 text-sm text-white transition-colors hover:bg-white/[0.2] disabled:opacity-60 ${focusRing}`}>
+        className={`flex w-full items-center justify-center gap-2 rounded-md border border-white/25 bg-white/[0.14] px-4 py-2.5 text-sm text-white transition-colors hover:bg-white/[0.2] disabled:opacity-60 ${focusRing}`}>
         {busy && <Loader2 className="h-4 w-4 animate-spin" />}
         {busy ? "Setting up..." : "Set up project"}
       </button>

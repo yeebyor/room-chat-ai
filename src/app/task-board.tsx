@@ -14,8 +14,8 @@ type Action = (op: string, args: Record<string, unknown>) => Promise<string | nu
 const AGENTS: Agent[] = ["Claude", "GPT", "Gemini"];
 const OPEN: TaskStatus[] = ["TODO", "CLAIMED", "REVIEW", "APPROVED", "BLOCKED"];
 const focusRing = "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40";
-const smallButton = `rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-1 text-xs text-zinc-200 transition-colors hover:bg-white/[0.14] hover:text-white disabled:opacity-50 ${focusRing}`;
-const field = "rounded-lg border border-white/15 bg-white/[0.08] px-2.5 py-1.5 text-xs text-white placeholder-zinc-500 outline-none focus:border-white/35";
+const smallButton = `rounded-md border border-white/15 bg-white/[0.06] px-2.5 py-1 text-xs text-zinc-200 transition-colors hover:bg-white/[0.14] hover:text-white disabled:opacity-50 ${focusRing}`;
+const field = "rounded-md border border-white/15 bg-white/[0.08] px-2.5 py-1.5 text-xs text-white placeholder-zinc-500 outline-none focus:border-white/35";
 
 type Kind = "reassign" | "unblock" | "exception" | "block" | "cancel";
 const LABEL: Record<Kind, string> = { reassign: "Reassign", unblock: "Unblock", exception: "Exception", block: "Block", cancel: "Cancel task" };
@@ -108,7 +108,7 @@ function AcceptMain({ room, onLocal }: { room: string; onLocal: Local }) {
 function RunResult({ run }: { run: CriterionRun }) {
   const Icon = run.passed ? Check : X;
   return (
-    <li className="rounded-lg border border-white/[0.12] bg-white/[0.04] px-2.5 py-2 text-xs">
+    <li className="rounded-md border border-white/[0.12] bg-white/[0.04] px-2.5 py-2 text-xs">
       <span className={`flex items-center gap-1.5 ${run.passed ? "text-emerald-200" : "text-red-200"}`}>
         <Icon className="h-3.5 w-3.5" aria-hidden="true" />
         {run.id} {run.passed ? "passed" : run.timed_out ? "timed out" : `failed (exit ${run.exit_code})`}
@@ -136,7 +136,7 @@ function ClosePanel({ board, onLocal, onDone }: { board: HfmaBoard; onLocal: Loc
     if (!outcome.error) onDone();
   };
   return (
-    <div className="mb-3 space-y-2 rounded-xl border border-white/20 bg-white/[0.06] p-3 text-xs text-zinc-300">
+    <div className="mb-3 space-y-2 rounded-md border border-white/20 bg-white/[0.06] p-3 text-xs text-zinc-300">
       <p className="text-sm text-white">Close project</p>
       <p>Closing is final: no task can be added afterwards. Command criteria run on main now; the rest needs your confirmation.</p>
       <ul className="space-y-1.5">
@@ -213,7 +213,7 @@ function TaskRow({ task, onAction }: { task: HfmaTask; onAction?: Action }) {
   // The commit that matters at each stage: merged, approved, then submitted.
   const commit = short(task.merge_hash ?? task.approved_hash ?? task.candidate);
   return (
-    <li className="rounded-xl border border-white/[0.12] bg-white/[0.05] px-3 py-2.5 backdrop-blur-md">
+    <li className="rounded-md border border-white/[0.12] bg-white/[0.05] px-3 py-2.5">
       <div className="flex items-center gap-2">
         <span className="shrink-0 text-xs tabular-nums text-zinc-500">#{task.id}</span>
         <span className={`min-w-0 flex-1 truncate text-sm ${task.status === "CANCELLED" ? "text-zinc-500 line-through" : "text-white"}`} title={task.title}>
@@ -261,7 +261,7 @@ function NewTask({ board, onAction, onDone }: { board: HfmaBoard; onAction: Acti
     if (failure) setError(failure); else onDone();
   };
   return (
-    <form onSubmit={submit} className="mb-3 space-y-2 rounded-xl border border-white/20 bg-white/[0.06] p-3 text-xs text-zinc-300" aria-label="New task">
+    <form onSubmit={submit} className="mb-3 space-y-2 rounded-md border border-white/20 bg-white/[0.06] p-3 text-xs text-zinc-300" aria-label="New task">
       <p className="text-sm text-white">New task</p>
       <div className="flex flex-wrap gap-1.5">
         <input autoFocus value={title} onChange={(event) => { setTitle(event.target.value); setError(""); }} maxLength={200} disabled={busy}
@@ -320,7 +320,7 @@ function Conflict({ decision, current, onAction, open }: { decision: HfmaDecisio
     if (failure) setError(failure);
   };
   return (
-    <li className="space-y-2 rounded-xl border border-red-300/30 bg-red-500/10 px-3 py-2.5 text-xs">
+    <li className="space-y-2 rounded-md border border-red-300/30 bg-red-500/10 px-3 py-2.5 text-xs">
       <p className="text-red-100">Conflict on <span className="font-mono">{decision.key}</span></p>
       {current && <div><span className="text-zinc-500">Active: </span><DecisionText decision={current} /></div>}
       <div><span className="text-zinc-500">New: </span><DecisionText decision={decision} /></div>
@@ -355,7 +355,7 @@ function Decisions({ board, onAction, open }: { board: HfmaBoard; onAction: Acti
       {active.length > 0 && (
         <ul className="space-y-1.5">
           {active.map((item) => (
-            <li key={item.id} className="rounded-xl border border-white/[0.12] bg-white/[0.05] px-3 py-2 text-xs">
+            <li key={item.id} className="rounded-md border border-white/[0.12] bg-white/[0.05] px-3 py-2 text-xs">
               <span className="font-mono text-zinc-400">{item.key}</span> <DecisionText decision={item} />
             </li>
           ))}
@@ -366,7 +366,7 @@ function Decisions({ board, onAction, open }: { board: HfmaBoard; onAction: Acti
           <summary className={`cursor-pointer ${focusRing}`}>{history.length} earlier decision{history.length === 1 ? "" : "s"}</summary>
           <ul className="mt-1.5 space-y-1.5">
             {history.map((item) => (
-              <li key={item.id} className="rounded-lg border border-white/[0.08] px-3 py-1.5">
+              <li key={item.id} className="rounded-md border border-white/[0.08] px-3 py-1.5">
                 <span className="font-mono">{item.key}</span> <span className="text-zinc-500">{item.status}</span> <DecisionText decision={item} />
               </li>
             ))}
@@ -422,7 +422,7 @@ export function TaskBoard({ board, onAction, onOrchestrator, onLocal }: { board:
       )}
       {open && !board.project.main_hash && (
         // The charter exists but the repo step did not finish (for example git failed): run it again.
-        <div role="status" className="mb-3 rounded-xl border border-amber-300/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
+        <div role="status" className="mb-3 rounded-md border border-amber-300/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
           <p>Setup did not finish: the project folder and worktrees are not ready yet.</p>
           <button type="button" disabled={finishing === "busy"} className={`${smallButton} mt-2`}
             onClick={async () => { setFinishing("busy"); setFinishing(await onLocal({ action: "setup", room: board.room })); }}>
@@ -435,7 +435,7 @@ export function TaskBoard({ board, onAction, onOrchestrator, onLocal }: { board:
       {open && panel === "charter" && <CharterEditor board={board} onAction={onAction} onLocal={onLocal} onDone={() => setPanel(null)} />}
       {open && panel === "task" && <NewTask board={board} onAction={onAction} onDone={() => setPanel(null)} />}
       {waiting > 0 && (
-        <div role="status" className="mb-3 rounded-xl border border-red-300/30 bg-red-500/15 px-3 py-2 text-xs text-red-100">
+        <div role="status" className="mb-3 rounded-md border border-red-300/30 bg-red-500/15 px-3 py-2 text-xs text-red-100">
           <p className="flex items-start gap-2">
             <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <span>

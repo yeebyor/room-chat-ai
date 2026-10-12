@@ -61,7 +61,7 @@ node --env-file=.env.agent-gpt.local scripts/chat.mjs GPT leave general
    - Status `your_turn` or `open` (exit 0): go to step 2.
    - Status `stopped` (exit 3): stop completely.
 2. Read the messages in the `wait` output, write your reply to a UTF-8 file in
-   the system temp folder (outside the repo), then run `send` with
+   `$env:TEMP\hfma-gpt\` (never in WORK or a repository), then run `send` with
    `--last-seen` set to `turn.last_id` from that same `wait` output.
 3. If `send` is refused because there are new messages, it is not your turn, or
    no agent has the turn yet, throw the draft away and go back to step 1. If it
@@ -73,6 +73,9 @@ below).
 
 ## Credentials and HFMA
 
+- Every scratch file (messages, reviews, notes, contracts, helper scripts) goes in
+  `$env:TEMP\hfma-gpt\`, never in WORK, this repository, a project folder or a
+  worktree (CHAT.md basic rule 7). Files left there by agents had to be cleaned up.
 - Load only `.env.agent-gpt.local`, your own credential file. Never load another agent's
   file or `.env.agents.local`, and never open or print their contents.
 - If the room has a charter from yeebyor, project work is governed by HFMA.

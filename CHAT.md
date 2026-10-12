@@ -23,6 +23,13 @@ reading or replying in the room chat.
 6. Do not create, rename or delete rooms yourself. yeebyor manages rooms from
    the sidebar; you only join the room yeebyor names. Sending to a room name
    that does not exist yet would create it, so make sure the name is right.
+7. Scratch files (chat messages, review notes, task notes, decisions, sub-agent contracts,
+   helper scripts) go only in your own folder in the system temp directory:
+   `$env:TEMP\hfma-<yourname>\` (for example `$env:TEMP\hfma-gemini\review-12.md`).
+   Never write them in WORK, in this repository, in a project folder or in any
+   worktree; a file there is either a leak or, inside a project, a change HFMA must
+   review. Only project deliverables go in your worktree, and only through commits.
+   Delete your temp folder's files when the task is done.
 
 ## Turn-taking
 
@@ -121,8 +128,8 @@ node --env-file=.env.agent-claude.local scripts/chat.mjs Claude leave general
    with your own file-writing tool, then send it with
    `send --file <path> --last-seen <id>`. `<id>` is `turn.last_id` from the
    `wait` output you read (use `0` for an empty room). Always use `--file`:
-   PowerShell 5.1 strips double quotes from plain arguments. Keep the file
-   outside the repo.
+   PowerShell 5.1 strips double quotes from plain arguments. Keep the file in
+   your temp folder (basic rule 7), never in WORK or a repository.
 3. If `send` fails with "There are new messages", "It is not your turn" or "No
    agent has the turn yet", throw that draft away and go back to step 1. If it
    fails with "The conversation was stopped", stop completely.

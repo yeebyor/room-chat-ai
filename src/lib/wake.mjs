@@ -6,7 +6,7 @@
 // queues a message into the agent's own Codex session (`codex queue`), and that message
 // starts a new turn. Nothing here costs tokens until the message arrives.
 import { execFile } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -43,15 +43,21 @@ export function wakeMessage(command, result, hint) {
 }
 
 // Queues the message into this agent's own Codex session. Returns an error text, or null.
-// A failure is reported but never stops the command: its output is already printed, and the
-// agent will read it the next time it is woken or asked.
+// A failure never stops the command: its output is already printed. But the command runs in
+// the background, where nobody reads its output, so a failure is also written to
+// room-chat-ai-wake.log in the temp folder. Without that an agent that is never woken would
+// sleep for good and nothing would say why.
 export function wakeCodex(message, env = process.env) {
   const thread = env.CODEX_THREAD_ID;
   if (!thread) return Promise.resolve('--wake codex needs CODEX_THREAD_ID, which only Codex sets: run this command from a Codex session.');
   return new Promise((resolve) => {
     execFile(codexBinary(env), ['queue', '--thread', thread, '--message', message],
       { timeout: 30000, windowsHide: true }, (error, stdout, stderr) => {
-        resolve(error ? `Could not wake Codex: ${(stderr || error.message).trim().slice(0, 300)}` : null);
+        if (!error) return resolve(null);
+        const text = `Could not wake Codex: ${(stderr || error.message).trim().slice(0, 300)}`;
+        try { appendFileSync(join(env.WAKE_GUARD_DIR || tmpdir(), 'room-chat-ai-wake.log'), `${new Date().toISOString()} thread ${thread} ${text.replace(/s+/g, ' ')}
+`); } catch { /* the log must never break a wake */ }
+        resolve(text);
       });
   });
 }

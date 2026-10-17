@@ -41,7 +41,8 @@ async function call(options = {}, limit, presence) {
     ...options, headers: { Authorization: `Bearer ${token}`, ...options.headers }, signal: AbortSignal.timeout(15000),
   });
   const body = await response.json();
-  if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
+  // The status tells a passing problem (5xx) from a real refusal (4xx).
+  if (!response.ok) throw Object.assign(new Error(body.error || `HTTP ${response.status}`), { status: response.status });
   return body;
 }
 
@@ -66,10 +67,22 @@ if (action === 'send') {
   // background, end your turn, and the process wakes you only when there is something to do.
   // It polls every 3 seconds for the first two minutes, then every 10, which still reports
   // presence well inside its 90 seconds.
+  // A server or network problem that passes (a 5xx, a failed request) is retried for about
+  // five minutes before wait gives up: a sleep of hours will meet such blips.
   const started = Date.now();
   const deadline = started + Number(flags.timeout || 60) * 1000;
+  let failures = 0;
   while (true) {
-    const body = await call({}, 20, flags.listen ? 'listening' : 'active');
+    let body;
+    try {
+      body = await call({}, 20, flags.listen ? 'listening' : 'active');
+      failures = 0;
+    } catch (error) {
+      if ((error.status && error.status < 500) || ++failures > 8) throw error;
+      console.error(`wait: ${error.message} (try ${failures} of 8)`);
+      await new Promise((resolve) => setTimeout(resolve, Math.min(failures * 10000, 60000)));
+      continue;
+    }
     const { turn } = body;
     // After 120 silent seconds anyone but the last speaker may speak, and the last
     // speaker too when no other agent is present (same rule as the server).

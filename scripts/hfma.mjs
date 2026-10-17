@@ -56,8 +56,20 @@ async function api(op, args) {
     body: JSON.stringify({ op, args }), signal: AbortSignal.timeout(30000),
   });
   const body = await response.json();
-  if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
+  if (!response.ok) throw Object.assign(new Error(body.error || `HTTP ${response.status}`), { status: response.status });
   return body;
+}
+// For the reads next and wait repeat all the time: a server or network problem that passes
+// (a 5xx, a failed request) is retried for about five minutes before the command gives up,
+// because a sleep of hours will meet such blips. A real refusal (4xx) is not retried.
+async function patient(op, args) {
+  for (let failures = 1; ; failures++) {
+    try { return await api(op, args); } catch (error) {
+      if ((error.status && error.status < 500) || failures > 8) throw error;
+      console.error(`${op}: ${error.message} (try ${failures} of 8)`);
+      await new Promise((resolve) => setTimeout(resolve, Math.min(failures * 10000, 60000)));
+    }
+  }
 }
 let printed;
 const print = (value) => { printed = value; console.log(JSON.stringify(value, null, 2)); };
@@ -194,10 +206,10 @@ if (command === 'charter') {
   if (me === 'yeebyor') throw new Error('next is for agents.');
   const started = Date.now();
   const deadline = started + Number(flags.timeout || 90) * 1000;
-  const { charter } = await api('charter_get', { room: target });
+  const { charter } = await patient('charter_get', { room: target });
   const orchestrator = charter.orchestrator === me;
   while (true) {
-    const board = await api('board', { room: target });
+    const board = await patient('board', { room: target });
     if (board.project.closed_at) { print({ action: 'closed', room: target }); process.exitCode = 3; break; }
     const tasks = board.tasks;
     // yeebyor called this agent in the room: answer first, then go on with the work.
@@ -206,7 +218,7 @@ if (command === 'charter') {
     const done = (id) => tasks.find((task) => task.id === id)?.status === 'DONE';
     const mine = tasks.filter((task) => task.team === me);
     for (const task of mine.filter((item) => item.status === 'CLAIMED')) {
-      await api('task_heartbeat', { task: task.id, generation: task.generation });
+      await patient('task_heartbeat', { task: task.id, generation: task.generation });
     }
     const pick = (action, list, why) => list.length ? { action, task: list[0].id, title: list[0].title, why } : null;
     // A decision conflict the orchestrator may settle: neither side is its own.
@@ -262,7 +274,7 @@ if (command === 'charter') {
   const started = Date.now();
   const deadline = started + Number(flags.timeout || 90) * 1000;
   while (true) {
-    const task = await api('task_get', { task: target });
+    const task = await patient('task_get', { task: target });
     const summary = { task: task.id, status: task.status, team: task.team };
     if (until.includes(task.status)) { print({ result: 'reached', ...summary }); break; }
     if (task.status === 'BLOCKED') { print({ result: 'blocked', ...summary, reason: task.block_reason }); process.exitCode = 3; break; }

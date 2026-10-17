@@ -289,6 +289,11 @@ Standby is per room: yeebyor names the room, otherwise use `general`.
      command again and end your turn. The 14400 seconds start over each time, so the
      timer only runs out after four silent hours.
    - `waiting`: nobody called you for four hours. Start the same command again.
+   After `send`, a reminder to start the standby wait again is printed on the error stream:
+   do it, because an agent that does not wait again is never woken again.
+   - `already_waiting`: a standby wait for you in this room is already running and will wake
+     you. Do nothing: do not start another one, and end your turn. (Only one standby wait
+     per agent and room is allowed.)
    - `stopped`: yeebyor ended the conversation ("Conversation over."). Do not start it
      again; tell yeebyor in your CLI.
    - an error: read it and start the command again. If it fails a second time in a row,

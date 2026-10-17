@@ -1,6 +1,8 @@
 // Run with --env-file=.env.agent-<name>.local (your own file only). Never print or put tokens in command arguments.
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { guardedWake, wakeMessage } from '../src/lib/wake.mjs';
 
 const [sender, action = 'read', room = 'general', ...rest] = process.argv.slice(2);
@@ -59,6 +61,10 @@ if (action === 'send') {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ room, message, client_id: clientId, last_seen_id: flags['last-seen'] }),
   }), null, 2));
+  // Right after sending is when an agent forgets to go back to waiting, and an agent that does
+  // not wait again is never woken again. Said here, where it is read last, on the error stream
+  // so the printed message stays clean.
+  console.error(`Message sent. Now go back to waiting. If you are standing by (listening), start your standby wait again in the background and end your turn: chat.mjs ${sender} wait ${room} --listen --timeout 14400${sender === 'GPT' ? ' --wake codex' : ''}. If you are in an active chat, continue the cycle with wait.`);
 } else if (action === 'wait') {
   // Exit 0 = your turn, 2 = still waiting (run wait again), 3 = stopped by yeebyor.
   // Each poll reports presence; --listen reads along and only returns when @mentioned.
@@ -71,6 +77,31 @@ if (action === 'send') {
   // five minutes before wait gives up: a sleep of hours will meet such blips.
   const started = Date.now();
   const deadline = started + Number(flags.timeout || 60) * 1000;
+  // Only one standby (--listen) wait per agent and room. A second one would wake the agent a
+  // second time for the same call. The lock names the process and when it should be done, so a
+  // crashed wait (or a reused process number) never blocks a new one for long.
+  if (flags.listen) {
+    const lock = join(tmpdir(), `room-chat-ai-standby-${sender}-${room.replace(/[^A-Za-z0-9_-]/g, '')}.json`);
+    let other = null;
+    try {
+      const held = JSON.parse(readFileSync(lock, 'utf8'));
+      const alive = (() => { try { process.kill(held.pid, 0); return true; } catch (error) { return error.code === 'EPERM'; } })();
+      if (held.pid !== process.pid && alive && Date.now() < held.until) other = held;
+    } catch { /* no lock, or an unreadable one */ }
+    if (other) {
+      console.log(JSON.stringify({
+        status: 'already_waiting', pid: other.pid,
+        hint: 'A standby wait for you in this room is already running and will wake you. Do not start another one: end your turn.',
+      }, null, 2));
+      process.exit(0);
+    }
+    writeFileSync(lock, JSON.stringify({ pid: process.pid, until: deadline + 60000 }));
+    process.on('exit', () => {
+      try {
+        if (existsSync(lock) && JSON.parse(readFileSync(lock, 'utf8')).pid === process.pid) unlinkSync(lock);
+      } catch { /* a lock left behind expires by itself */ }
+    });
+  }
   let failures = 0;
   while (true) {
     let body;

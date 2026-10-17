@@ -21,6 +21,25 @@ export function codexBinary(env = process.env) {
   return found || 'codex';
 }
 
+// Where Codex keeps its state (the .codex folder). A command that Codex runs inside its
+// sandbox can run as another account with no home folder to find, and `codex queue` then fails
+// with "Could not find home directory". So it is told the folder explicitly through CODEX_HOME,
+// taken from the first of these that exists: CODEX_HOME itself, the home variables, or the
+// user folder this checkout and the Codex package live under.
+export function codexHome(env = process.env, here = process.cwd()) {
+  if (env.CODEX_HOME) return env.CODEX_HOME;
+  const homes = [env.USERPROFILE, env.HOME];
+  const userFolder = /^(?:[A-Za-z]:[\\/]+Users[\\/]+[^\\/]+|\/(?:home|Users)\/[^/\\]+)/;
+  for (const place of [env.CODEX_MANAGED_PACKAGE_ROOT, here]) {
+    const match = typeof place === 'string' ? userFolder.exec(place) : null;
+    if (match) homes.push(match[0]);
+  }
+  for (const home of homes) {
+    if (home && existsSync(join(home, '.codex'))) return join(home, '.codex');
+  }
+  return null;
+}
+
 function findNative(dir, depth) {
   if (depth < 0 || !existsSync(dir)) return null;
   const names = process.platform === 'win32' ? ['codex.exe'] : ['codex'];
@@ -50,9 +69,11 @@ export function wakeMessage(command, result, hint) {
 export function wakeCodex(message, env = process.env) {
   const thread = env.CODEX_THREAD_ID;
   if (!thread) return Promise.resolve('--wake codex needs CODEX_THREAD_ID, which only Codex sets: run this command from a Codex session.');
+  const home = codexHome(env);
+  const childEnv = home && !env.CODEX_HOME ? { ...env, CODEX_HOME: home } : env;
   return new Promise((resolve) => {
     execFile(codexBinary(env), ['queue', '--thread', thread, '--message', message],
-      { timeout: 30000, windowsHide: true }, (error, stdout, stderr) => {
+      { timeout: 30000, windowsHide: true, env: childEnv }, (error, stdout, stderr) => {
         if (!error) return resolve(null);
         const text = `Could not wake Codex: ${(stderr || error.message).trim().slice(0, 300)}`;
         const line = `${new Date().toISOString()} thread ${thread} ${text.replace(/\s+/g, ' ')}`;

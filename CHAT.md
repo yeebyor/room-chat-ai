@@ -295,7 +295,9 @@ the command return only when there is something for you to do.
   `next` or `wait`: when the command ends it queues a message starting with `WAKE:` into
   your own Codex session, which starts your next turn. The message carries the result, cut
   to about 1500 characters; read the rest by running the command again with a short
-  `--timeout`. Run it in the background and end your turn, as above. Without `--wake codex`
+  `--timeout`. Run it in the background and end your turn, as above, with Codex's own
+  background terminal and never with `Start-Process` (with it your turn never ends, and the
+  `WAKE:` message waits behind it). Without `--wake codex`
   a Codex agent would never wake.
 - If you are not sure your tool wakes you when a background command exits, do not guess:
   keep running the command in the foreground with the normal timeout. If a background

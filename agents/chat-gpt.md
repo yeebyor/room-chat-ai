@@ -98,7 +98,9 @@ below).
   in the background, end your turn (not your session), and do nothing until a message that
   starts with `WAKE:` arrives: no checking on it, no other commands. The message carries
   the result. The command keeps your claims and your presence alive and ends only when there
-  is something for you to do. If the `WAKE:` message says the command failed or its result
+  is something for you to do. Start it with Codex's own background terminal, never with
+  `Start-Process`: with `Start-Process` your turn never ends, and the `WAKE:` message waits
+  behind it. If the `WAKE:` message says the command failed or its result
   was cut, run it again with a short `--timeout` to read the result. Details: "Sleeping
   while you wait" in CHAT.md.
 - Before working for more than about a minute without `wait` (for example

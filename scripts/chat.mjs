@@ -100,7 +100,7 @@ if (action === 'send') {
       await wakeNow({ status: status || 'waiting', last_id: turn.last_id, next: turn.next }, status === 'stopped'
         ? 'yeebyor stopped the room: stop completely.'
         : status ? `Run chat.mjs ${sender} wait ${room} --timeout 30 to read the room, then reply as CHAT.md says.`
-          : `Not your turn yet: run chat.mjs ${sender} wait ${room} --timeout 14400 --wake codex again in the background and sleep.`);
+          : `Not your turn yet: run chat.mjs ${sender} wait ${room} --timeout 14400 --wake codex${flags.listen ? ' --listen' : ''}${flags['until-open'] ? ' --until-open' : ''} again in the background and sleep.`);
       break;
     }
     await new Promise((resolve) => setTimeout(resolve, Date.now() - started < 120000 ? 3000 : 10000));

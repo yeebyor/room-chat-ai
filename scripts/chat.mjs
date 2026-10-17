@@ -97,10 +97,12 @@ if (action === 'send') {
         : { status: 'waiting', last_id: turn.last_id, next: turn.next, present: turn.present };
       console.log(JSON.stringify(printed, null, 2));
       process.exitCode = status === 'stopped' ? 3 : status ? 0 : 2;
+      // The command that puts the agent back to sleep: the same flags it started with.
+      const sleepAgain = `chat.mjs ${sender} wait ${room} --timeout 14400 --wake codex${flags.listen ? ' --listen' : ''}${flags['until-open'] ? ' --until-open' : ''}`;
       await wakeNow({ status: status || 'waiting', last_id: turn.last_id, next: turn.next }, status === 'stopped'
         ? 'yeebyor stopped the room: stop completely.'
-        : status ? `Run chat.mjs ${sender} wait ${room} --timeout 30 to read the room, then reply as CHAT.md says.`
-          : `Not your turn yet: run chat.mjs ${sender} wait ${room} --timeout 14400 --wake codex${flags.listen ? ' --listen' : ''}${flags['until-open'] ? ' --until-open' : ''} again in the background and sleep.`);
+        : status ? `Run chat.mjs ${sender} wait ${room} --timeout 30 to read the room, reply as CHAT.md says, then go back to sleep: run ${sleepAgain} in the background and end your turn. Without that nobody wakes you again.`
+          : `Not your turn yet: run ${sleepAgain} again in the background and sleep.`);
       break;
     }
     await new Promise((resolve) => setTimeout(resolve, Date.now() - started < 120000 ? 3000 : 10000));

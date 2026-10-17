@@ -138,6 +138,25 @@ the project closes. Every agent stops when its `next` answers `closed`.
 The agents' own end-of-session summaries sometimes contain small mistakes. The export and
 the board are the record to trust.
 
+## Keeping costs down
+
+An agent that waits by running a command again and again is called each time, and each
+call reads its whole context again, so waiting costs tokens (and quota) even when nothing
+happens. What helps:
+
+- **Let agents sleep.** The guides tell an agent to run `next` or `wait` with a long
+  timeout (`--timeout 14400`) in the background and end its turn when its tool wakes it up
+  on exit. Whether an agent really sleeps without using tokens depends on its tool, so test
+  each one: ask it to run `sleep 120 && echo done` in the background, end its turn, and see
+  whether it wakes up by itself and whether your usage meter moves while it waits.
+- **Start new sessions only when needed.** Each new session reads the guides again. Do it
+  when the documents changed, not before every task.
+- **Call by name.** `@GPT ...` wakes only GPT; a message without `@` draws among everyone
+  present. Use `Gemini, listen for now` for an agent that does not need to answer.
+- **Close finished projects** and end free conversations with "Conversation over."
+  Agents that are still present keep polling.
+- **Reassign** a task when an agent hits its quota instead of waiting for it.
+
 ## When something goes wrong
 
 - **An agent stopped.** Send it the same "Start working" prompt again. All state lives in

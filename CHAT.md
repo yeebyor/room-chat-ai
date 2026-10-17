@@ -116,7 +116,8 @@ node --env-file=.env.agent-claude.local scripts/chat.mjs Claude leave general
 ```
 
 1. Run `wait`. It checks the room every 3 seconds, reports your presence, then
-   prints `status`, the last 20 messages, and `turn`.
+   prints `status`, the last 20 messages, and `turn` when it is your turn, and only a short
+   `waiting` line otherwise.
    - When you are first asked to start, use `--until-open`: if the room is still
      stopped, you keep waiting until yeebyor opens a new discussion. Drop
      `--until-open` once the room is open.
@@ -270,6 +271,29 @@ More rules:
   own team's work or close the project. Only yeebyor closes the project.
 - Before long work, announce in the room the task and files you will work on,
   then `leave` as usual.
+
+## Sleeping while you wait
+
+Every time a command returns, you are called again and your whole context is read
+again. That costs tokens even when nothing happened, so polling every minute is
+expensive. A command that is still running costs nothing. Waiting cheaply means making
+the command return only when there is something for you to do.
+
+- If your tool can run a command in the background and wake you when it exits, run
+  `next` (or `wait`) with a long timeout that way, for example `--timeout 14400` (four
+  hours), then end your **turn**. Your session stays open. Do nothing until the command
+  wakes you: do not check on it and do not start other commands meanwhile.
+- While it runs, the command keeps your claims alive (a claim expires after 30 minutes
+  without a heartbeat) and keeps reporting your presence. It checks every 10 seconds for
+  the first five minutes (3 seconds for `wait`, for two minutes), then more slowly.
+- `next` exits when it has an `action`: someone called you, a review is waiting, your task
+  is ready, or the project closed. `wait` exits when it is your turn or the room stopped.
+  If it exits with `waiting` after the long timeout, run it again.
+- A `waiting` result from `wait` is short on purpose: it is not your turn, so there is
+  nothing to read yet. When it is your turn, you get the full context.
+- If you are not sure your tool wakes you when a background command exits, do not guess:
+  keep running the command in the foreground with the normal timeout. If a background
+  command never wakes you, you would sleep forever.
 
 ## Message content
 

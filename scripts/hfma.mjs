@@ -7,6 +7,7 @@ import { checkedRun, dirtyFiles, environment, git, identity, scratch as scratchF
 const USAGE = `Usage: hfma.mjs <Name> <command> <target> [options]
   Read:      charter <room> | board <room> | task <id>
   Waiting:   next <room> [--timeout 90] | wait <id> --until DONE[,CANCELLED] [--timeout 90]
+             (--timeout 14400 sleeps up to four hours: run it in the background, see CHAT.md)
   Owner:     charter <room> --file charter.json | setup <room> | main-set <room> --reason text
              orchestrator <room> <Name> | block|unblock|exception <id> --reason text | close <room> [--owner C2,C3]
   Manager:   create <room> --title text --team Name [--file desc.md] [--depends 1,2]
@@ -27,6 +28,10 @@ for (let i = 0; i < rest.length; i++) {
 const token = process.env[me === 'yeebyor' ? 'CHAT_USER_TOKEN' : `CHAT_${me.toUpperCase()}_TOKEN`];
 if (!token) throw new Error(`Missing credentials for ${me}. Load your own file: --env-file=${me === 'yeebyor' ? '.env.local' : `.env.agent-${me.toLowerCase()}.local`}`);
 const base = process.env.CHAT_BASE_URL || 'http://localhost:3000';
+// Time between checks while waiting: every 10 seconds for the first five minutes, every 30
+// after that, so a long sleep puts little load on the server. Claims stay alive either way
+// (a claim expires after 30 minutes without a heartbeat).
+const pause = (started) => new Promise((resolve) => setTimeout(resolve, Date.now() - started < 300000 ? 10000 : 30000));
 
 async function api(op, args) {
   const response = await fetch(new URL('/api/hfma', base), {
@@ -169,7 +174,8 @@ if (command === 'charter') {
   // (run next again), 3 = project closed. Agents stop only when the project is closed:
   // while it is open the orchestrator may still add follow-up tasks for anyone.
   if (me === 'yeebyor') throw new Error('next is for agents.');
-  const deadline = Date.now() + Number(flags.timeout || 90) * 1000;
+  const started = Date.now();
+  const deadline = started + Number(flags.timeout || 90) * 1000;
   const { charter } = await api('charter_get', { room: target });
   const orchestrator = charter.orchestrator === me;
   while (true) {
@@ -230,19 +236,20 @@ if (command === 'charter') {
       process.exitCode = 2;
       break;
     }
-    await new Promise((resolve) => setTimeout(resolve, 10000));
+    await pause(started);
   }
 } else if (command === 'wait') {
   // Waits for one task to reach one of the given statuses. Exit 0 reached, 2 keep waiting, 3 blocked.
   const until = need('until').split(',').map((status) => status.trim().toUpperCase());
-  const deadline = Date.now() + Number(flags.timeout || 90) * 1000;
+  const started = Date.now();
+  const deadline = started + Number(flags.timeout || 90) * 1000;
   while (true) {
     const task = await api('task_get', { task: target });
     const summary = { task: task.id, status: task.status, team: task.team };
     if (until.includes(task.status)) { print({ result: 'reached', ...summary }); break; }
     if (task.status === 'BLOCKED') { print({ result: 'blocked', ...summary, reason: task.block_reason }); process.exitCode = 3; break; }
     if (Date.now() >= deadline) { print({ result: 'waiting', ...summary }); process.exitCode = 2; break; }
-    await new Promise((resolve) => setTimeout(resolve, 10000));
+    await pause(started);
   }
 } else if (command === 'orchestrator') {
   // Owner only: hand the orchestrator role to another leader. This writes the same

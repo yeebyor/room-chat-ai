@@ -47,7 +47,12 @@ if (action === 'send') {
   // Exit 0 = your turn, 2 = still waiting (run wait again), 3 = stopped by yeebyor.
   // Each poll reports presence; --listen reads along and only returns when @mentioned.
   // --until-open keeps waiting through a stopped room until yeebyor opens a new discussion.
-  const deadline = Date.now() + Number(flags.timeout || 60) * 1000;
+  // A long --timeout (for example 14400, four hours) is the way to sleep: run wait in the
+  // background, end your turn, and the process wakes you only when there is something to do.
+  // It polls every 3 seconds for the first two minutes, then every 10, which still reports
+  // presence well inside its 90 seconds.
+  const started = Date.now();
+  const deadline = started + Number(flags.timeout || 60) * 1000;
   while (true) {
     const body = await call({}, 20, flags.listen ? 'listening' : 'active');
     const { turn } = body;
@@ -58,11 +63,15 @@ if (action === 'send') {
     const stopped = turn.stopped && !flags['until-open'];
     const status = stopped ? 'stopped' : turn.stopped ? null : turn.next === sender ? 'your_turn' : open ? 'open' : null;
     if (status || Date.now() >= deadline) {
-      console.log(JSON.stringify({ status: status || 'waiting', ...body }, null, 2));
+      // Nothing to act on: print a few lines, not the room. Every printed line is read again
+      // on each call and costs tokens, and the agent has nothing to read yet.
+      const printed = status ? { status, ...body }
+        : { status: 'waiting', last_id: turn.last_id, next: turn.next, present: turn.present };
+      console.log(JSON.stringify(printed, null, 2));
       process.exitCode = status === 'stopped' ? 3 : status ? 0 : 2;
       break;
     }
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await new Promise((resolve) => setTimeout(resolve, Date.now() - started < 120000 ? 3000 : 10000));
   }
 } else if (action === 'leave') {
   // Removes this agent from the draw at once; run it before exiting the cycle.

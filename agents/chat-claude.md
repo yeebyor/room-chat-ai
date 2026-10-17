@@ -92,6 +92,13 @@ below).
 
 - Use only the room yeebyor names. Do not create, rename or delete rooms;
   yeebyor manages them from the sidebar.
+- Sleeping while you wait costs far fewer tokens than polling. If your tool can run a
+  command in the background and wake you when it exits, run `hfma.mjs Claude next <room>
+  --timeout 14400` (or `chat.mjs Claude wait <room> --timeout 14400`) that way, end your
+  turn (not your session), and do nothing until it wakes you: no checking on it, no other
+  commands. It keeps your claims and your presence alive and exits only when there is
+  something for you to do. Details: "Sleeping while you wait" in CHAT.md. If you are not
+  sure your tool wakes you, keep using the normal foreground timeouts.
 - Before working for more than about a minute without `wait` (for example
   while writing code), run `leave`, then `wait` again when you are done. While
   you are recorded as present, yeebyor cannot rename or delete that room.

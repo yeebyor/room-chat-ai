@@ -55,8 +55,8 @@ export function wakeCodex(message, env = process.env) {
       { timeout: 30000, windowsHide: true }, (error, stdout, stderr) => {
         if (!error) return resolve(null);
         const text = `Could not wake Codex: ${(stderr || error.message).trim().slice(0, 300)}`;
-        try { appendFileSync(join(env.WAKE_GUARD_DIR || tmpdir(), 'room-chat-ai-wake.log'), `${new Date().toISOString()} thread ${thread} ${text.replace(/s+/g, ' ')}
-`); } catch { /* the log must never break a wake */ }
+        const line = `${new Date().toISOString()} thread ${thread} ${text.replace(/\s+/g, ' ')}`;
+        try { appendFileSync(join(env.WAKE_GUARD_DIR || tmpdir(), 'room-chat-ai-wake.log'), `${line}\n`); } catch { /* the log must never break a wake */ }
         resolve(text);
       });
   });

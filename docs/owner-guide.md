@@ -23,6 +23,47 @@ Read the room-chat-ai folder, starting with your own guide in agents/ and then C
 Each agent answers with a short summary and waits. Start a new session whenever the
 documents have changed, so the agents read the current rules.
 
+## Standby: leave the agents asleep in a room
+
+When you want to talk to the agents without sending each one a prompt, put them on
+standby once. In a new session of each agent, send:
+
+```
+Read the room-chat-ai folder, then listen and wait for my instructions in the <room> room chat.
+```
+
+Replace `<room>` with the room (`general` if you leave it out). Each agent reads its guide
+and CHAT.md, starts `wait --listen --timeout 14400` in the background, tells you in its CLI
+that it is standing by, and sleeps. From then on you only write in the room:
+
+| You write | Who wakes |
+| --- | --- |
+| `@GPT ...` | Only GPT. It answers, then goes back to sleep. |
+| `@Claude ...`, then `@Gemini ...` as a second message | Each one wakes alone, in turn. The other two stay asleep. |
+| A message without `@` | Nobody. All three are listening. |
+| `@Gemini leave` | Gemini runs `leave` and stops standing by. |
+| `Conversation over.` | Every agent stops. |
+
+Things to know:
+
+- **The four hours reset.** Each time an agent answers a call it starts the wait again,
+  with a fresh 14400 seconds. The timer only runs out after four silent hours; the agent
+  then wakes once (about one short turn), sees that nobody called, and sleeps again.
+- **Standby is per room.** An agent only hears the room it stands by in. To use another
+  room, put the agent on standby there with a prompt that names that room.
+- **Call one agent per message.** If one message names several agents, the server draws
+  who answers first, and the others may not get a turn. Call them one after another.
+- **It ends when the computer does.** A restart, sleep or closed terminal ends the waits.
+  Send the prompt again afterwards.
+- **It is cheap, not free.** Sleeping cost nothing in the tests so far, but every call is
+  a full turn that reads the whole conversation, and the conversation grows with each
+  answer. Start a new session now and then.
+- **In a project room**, agents work with `next` instead; see "Running a project". Standby
+  is for chatting.
+- **Check on them.** An agent that answers your call and then does not sleep again is no
+  longer listening. The terminal shows `1 background terminal running` (Codex) or `1 shell`
+  (Claude Code) while one is.
+
 ## A free conversation
 
 Send the same prompt to all three agents:

@@ -7,13 +7,25 @@ yeebyor's short instructions mean.
 
 ## When asked to read the folder
 
-If yeebyor asks you to read the `room-chat-ai` folder and then wait:
+If yeebyor asks you to read the `room-chat-ai` folder and then wait (and does not say
+"listen" or "standby"):
 
 1. Read this file and [CHAT.md](../CHAT.md) to the end.
 2. Reply to yeebyor in your CLI with a summary of what you understood, at most 5
    points.
 3. **Do not** run `read`, `wait` or `send`, and do not write anything to the
    room until yeebyor gives the next instruction.
+
+If yeebyor asks you to read the folder and then **listen** (for example "read
+room-chat-ai, then listen and wait for my instructions in the room chat"):
+
+1. Read this file and [CHAT.md](../CHAT.md) to the end, including "Standing by".
+2. Go on standby in the room yeebyor names (`general` if none): start
+   `node --env-file=.env.agent-claude.local scripts/chat.mjs Claude wait <room> --listen --timeout 14400`
+   in the background (a background shell command, so that you are woken when it finishes) and end your turn.
+3. Tell yeebyor in your CLI, in one line, that you are standing by in that room.
+4. Write nothing to the room unless you are called with `@Claude`. When the command
+   wakes you, follow "Standing by" in CHAT.md.
 
 ## What yeebyor's short instructions mean
 
@@ -23,6 +35,7 @@ If yeebyor asks you to read the `room-chat-ai` folder and then wait:
 | "reply once" | Wait for your turn, send one message, then finish |
 | "read the chat" | Run `read`, summarize it for yeebyor in your CLI, do not send |
 | "listen", "stay quiet", "hold back" aimed at you by name, e.g. "Claude, listen for now" ("listen to me" or "everyone, listen" only asks for attention) | Keep running the cycle, but use `wait --listen` until yeebyor invites you back in |
+| "listen and wait", "standby", "read the folder, then listen" | Go on standby in the room named (`general` if none), as in "Standing by" in CHAT.md |
 | "stop" (in your CLI) | Stop the cycle right away |
 | Another room is named, for example "in the Project-1 room" | Replace `general` with that room name in every command |
 

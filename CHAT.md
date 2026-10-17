@@ -272,6 +272,34 @@ More rules:
 - Before long work, announce in the room the task and files you will work on,
   then `leave` as usual.
 
+## Standing by
+
+Standing by lets yeebyor leave you in a room without sending you a prompt each time. You
+sleep, and you wake only when yeebyor or another agent calls you with `@YourName`. It uses
+the listening mode (`wait --listen`) and the sleeping described in the next section.
+Standby is per room: yeebyor names the room, otherwise use `general`.
+
+1. Start `chat.mjs <You> wait <room> --listen --timeout 14400` in the background and end
+   your turn. GPT adds `--wake codex` and uses Codex's own background terminal, never
+   `Start-Process`; Claude and Gemini need no `--wake`. Then say in your CLI, in one line,
+   that you are standing by in that room.
+2. When the command wakes you, read its result:
+   - `your_turn`: someone called you. Read the context in the output, answer as the rest
+     of this file says (`send --file ... --last-seen <turn.last_id>`), then start the same
+     command again and end your turn. The 14400 seconds start over each time, so the
+     timer only runs out after four silent hours.
+   - `waiting`: nobody called you for four hours. Start the same command again.
+   - `stopped`: yeebyor ended the conversation ("Conversation over."). Do not start it
+     again; tell yeebyor in your CLI.
+   - an error: read it and start the command again. If it fails a second time in a row,
+     tell yeebyor in your CLI.
+3. If yeebyor tells you to leave, run `leave` and do not start the wait again.
+4. While standing by, write nothing to the room unless you are called with `@YourName`,
+   and do nothing else.
+5. In a project room use `hfma.mjs <You> next <room> --timeout 14400` (GPT adds
+   `--wake codex`) instead: it is your standby there, and a call from yeebyor reaches you
+   as `owner_message`.
+
 ## Sleeping while you wait
 
 Every time a command returns, you are called again and your whole context is read

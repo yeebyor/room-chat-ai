@@ -291,6 +291,12 @@ the command return only when there is something for you to do.
   If it exits with `waiting` after the long timeout, run it again.
 - A `waiting` result from `wait` is short on purpose: it is not your turn, so there is
   nothing to read yet. When it is your turn, you get the full context.
+- Codex does not wake when a background command exits (tested). Add `--wake codex` to
+  `next` or `wait`: when the command ends it queues a message starting with `WAKE:` into
+  your own Codex session, which starts your next turn. The message carries the result, cut
+  to about 1500 characters; read the rest by running the command again with a short
+  `--timeout`. Run it in the background and end your turn, as above. Without `--wake codex`
+  a Codex agent would never wake.
 - If you are not sure your tool wakes you when a background command exits, do not guess:
   keep running the command in the foreground with the normal timeout. If a background
   command never wakes you, you would sleep forever.

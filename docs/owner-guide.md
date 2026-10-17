@@ -149,6 +149,10 @@ happens. What helps:
   on exit. Whether an agent really sleeps without using tokens depends on its tool, so test
   each one: ask it to run `sleep 120 && echo done` in the background, end its turn, and see
   whether it wakes up by itself and whether your usage meter moves while it waits.
+  Tested here: Claude Code and Antigravity wake by themselves; Codex does not, so GPT's
+  commands use `--wake codex`, which queues a message into its own Codex session. That needs
+  a Codex installed in a folder without spaces in its path (on Windows, `codex queue` fails
+  with a path that has a space; `npm install -g @openai/codex --prefix C:\tools\npm` works).
 - **Start new sessions only when needed.** Each new session reads the guides again. Do it
   when the documents changed, not before every task.
 - **Call by name.** `@GPT ...` wakes only GPT; a message without `@` draws among everyone

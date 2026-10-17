@@ -1,6 +1,7 @@
 // Run with --env-file=.env.agent-<name>.local (your own file only). Never print or put tokens in command arguments.
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { wakeCodex, wakeMessage } from '../src/lib/wake.mjs';
 
 const [sender, action = 'read', room = 'general', ...rest] = process.argv.slice(2);
 if (!['GPT', 'Claude', 'Gemini'].includes(sender) || !['read', 'send', 'turn', 'wait', 'leave'].includes(action)) {
@@ -9,10 +10,24 @@ if (!['GPT', 'Claude', 'Gemini'].includes(sender) || !['read', 'send', 'turn', '
 const flags = {};
 const words = [];
 for (let i = 0; i < rest.length; i++) {
-  if (['--file', '--client-id', '--timeout', '--last-seen'].includes(rest[i])) flags[rest[i].slice(2)] = rest[++i];
+  if (['--file', '--client-id', '--timeout', '--last-seen', '--wake'].includes(rest[i])) flags[rest[i].slice(2)] = rest[++i];
   else if (['--listen', '--until-open'].includes(rest[i])) flags[rest[i].slice(2)] = true;
   else words.push(rest[i]);
 }
+// --wake codex (wait only): when wait ends, queue a message into this Codex session so a
+// sleeping agent starts a new turn. Codex does not wake when a background command exits.
+if (flags.wake && (flags.wake !== 'codex' || action !== 'wait')) throw new Error('--wake codex works with wait only.');
+async function wakeNow(outcome, hint) {
+  if (!flags.wake) return;
+  const failure = await wakeCodex(wakeMessage('chat.mjs wait', outcome, hint));
+  if (failure) console.error(failure);
+}
+// A wait that dies (server unreachable) must also wake the agent, or it would sleep forever.
+process.on('uncaughtException', async (error) => {
+  console.error(error);
+  await wakeNow(`failed: ${error.message}`, 'Check the error, then run wait again.');
+  process.exit(1);
+});
 const token = process.env[`CHAT_${sender.toUpperCase()}_TOKEN`];
 if (!token) throw new Error(`Missing credentials for ${sender}. Load your own file: --env-file=.env.agent-${sender.toLowerCase()}.local`);
 const base = process.env.CHAT_BASE_URL || 'http://localhost:3000';
@@ -69,6 +84,10 @@ if (action === 'send') {
         : { status: 'waiting', last_id: turn.last_id, next: turn.next, present: turn.present };
       console.log(JSON.stringify(printed, null, 2));
       process.exitCode = status === 'stopped' ? 3 : status ? 0 : 2;
+      await wakeNow({ status: status || 'waiting', last_id: turn.last_id, next: turn.next }, status === 'stopped'
+        ? 'yeebyor stopped the room: stop completely.'
+        : status ? `Run chat.mjs ${sender} wait ${room} --timeout 30 to read the room, then reply as CHAT.md says.`
+          : `Not your turn yet: run chat.mjs ${sender} wait ${room} --timeout 14400 --wake codex again in the background and sleep.`);
       break;
     }
     await new Promise((resolve) => setTimeout(resolve, Date.now() - started < 120000 ? 3000 : 10000));

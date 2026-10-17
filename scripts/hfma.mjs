@@ -2,12 +2,14 @@
 // sends the raw results to the database, so evidence is never typed by an agent.
 // Run with --env-file=<your credentials file>. Never print or pass tokens as arguments.
 import { readFileSync } from 'node:fs';
+import { wakeCodex, wakeMessage } from '../src/lib/wake.mjs';
 import { checkedRun, dirtyFiles, environment, git, identity, scratch as scratchFor, teamTree, tryGit } from '../src/lib/hfma-local.mjs';
 
 const USAGE = `Usage: hfma.mjs <Name> <command> <target> [options]
   Read:      charter <room> | board <room> | task <id>
   Waiting:   next <room> [--timeout 90] | wait <id> --until DONE[,CANCELLED] [--timeout 90]
-             (--timeout 14400 sleeps up to four hours: run it in the background, see CHAT.md)
+             (--timeout 14400 sleeps up to four hours: run it in the background, see CHAT.md;
+              add --wake codex there so Codex is woken when it finishes)
   Owner:     charter <room> --file charter.json | setup <room> | main-set <room> --reason text
              orchestrator <room> <Name> | block|unblock|exception <id> --reason text | close <room> [--owner C2,C3]
   Manager:   create <room> --title text --team Name [--file desc.md] [--depends 1,2]
@@ -28,6 +30,21 @@ for (let i = 0; i < rest.length; i++) {
 const token = process.env[me === 'yeebyor' ? 'CHAT_USER_TOKEN' : `CHAT_${me.toUpperCase()}_TOKEN`];
 if (!token) throw new Error(`Missing credentials for ${me}. Load your own file: --env-file=${me === 'yeebyor' ? '.env.local' : `.env.agent-${me.toLowerCase()}.local`}`);
 const base = process.env.CHAT_BASE_URL || 'http://localhost:3000';
+// --wake codex (next and wait only): when the command ends, queue a message into this Codex
+// session so a sleeping agent starts a new turn. Codex does not wake on a background exit.
+if (flags.wake && (flags.wake !== 'codex' || !['next', 'wait'].includes(command))) throw new Error('--wake codex works with next and wait only.');
+async function wakeNow(outcome, hint) {
+  if (!flags.wake) return;
+  const failure = await wakeCodex(wakeMessage(`hfma.mjs ${command}`, outcome, hint));
+  if (failure) console.error(failure);
+}
+// A command that dies (server unreachable, bad credentials) must also wake the agent, or it
+// would sleep forever: say what went wrong, then exit with an error.
+process.on('uncaughtException', async (error) => {
+  console.error(error);
+  await wakeNow(`failed: ${error.message}`, 'Check the error, then run the command again.');
+  process.exit(1);
+});
 // Time between checks while waiting: every 10 seconds for the first five minutes, every 30
 // after that, so a long sleep puts little load on the server. Claims stay alive either way
 // (a claim expires after 30 minutes without a heartbeat).
@@ -42,7 +59,8 @@ async function api(op, args) {
   if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
   return body;
 }
-const print = (value) => console.log(JSON.stringify(value, null, 2));
+let printed;
+const print = (value) => { printed = value; console.log(JSON.stringify(value, null, 2)); };
 const text = (path) => readFileSync(path, 'utf8').replace(/^﻿/, '');
 const need = (name) => { if (!flags[name]) throw new Error(`Pass --${name}.\n${USAGE}`); return flags[name]; };
 
@@ -378,3 +396,6 @@ if (command === 'charter') {
 } else {
   throw new Error(`Unknown command ${command}.\n${USAGE}`);
 }
+await wakeNow(printed, command === 'next'
+  ? `Act on it now. If it was cut, run: hfma.mjs ${me} next ${target} --timeout 5 to read it in full. When nothing is left to do, go back to sleep with next --timeout 14400 --wake codex in the background.`
+  : 'Go on with your work.');

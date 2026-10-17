@@ -2,7 +2,7 @@
 // sends the raw results to the database, so evidence is never typed by an agent.
 // Run with --env-file=<your credentials file>. Never print or pass tokens as arguments.
 import { readFileSync } from 'node:fs';
-import { wakeCodex, wakeMessage } from '../src/lib/wake.mjs';
+import { guardedWake, wakeMessage } from '../src/lib/wake.mjs';
 import { checkedRun, dirtyFiles, environment, git, identity, scratch as scratchFor, teamTree, tryGit } from '../src/lib/hfma-local.mjs';
 
 const USAGE = `Usage: hfma.mjs <Name> <command> <target> [options]
@@ -35,7 +35,7 @@ const base = process.env.CHAT_BASE_URL || 'http://localhost:3000';
 if (flags.wake && (flags.wake !== 'codex' || !['next', 'wait'].includes(command))) throw new Error('--wake codex works with next and wait only.');
 async function wakeNow(outcome, hint) {
   if (!flags.wake) return;
-  const failure = await wakeCodex(wakeMessage(`hfma.mjs ${command}`, outcome, hint));
+  const failure = await guardedWake(`hfma ${command} ${target} ${(typeof outcome === 'string' ? outcome : JSON.stringify(outcome)).slice(0, 300)}`, wakeMessage(`hfma.mjs ${command}`, outcome, hint));
   if (failure) console.error(failure);
 }
 // A command that dies (server unreachable, bad credentials) must also wake the agent, or it

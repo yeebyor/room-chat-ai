@@ -6,7 +6,8 @@
 // queues a message into the agent's own Codex session (`codex queue`), and that message
 // starts a new turn. Nothing here costs tokens until the message arrives.
 import { execFile } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const MAX_RESULT = 1500;
@@ -53,4 +54,48 @@ export function wakeCodex(message, env = process.env) {
         resolve(error ? `Could not wake Codex: ${(stderr || error.message).trim().slice(0, 300)}` : null);
       });
   });
+}
+
+// Loop guard. A wake costs tokens, so a wake that keeps repeating must stop. If the same
+// result wakes an agent more than MAX_SAME times within WINDOW_MS (it was woken, did nothing
+// that changed it, slept, and was woken by the same thing), the next wake is replaced by one
+// last message telling the agent to stop and report to yeebyor, and that result stays silent
+// for COOLDOWN_MS. A different result (a real new event) still gets through. More than
+// MAX_ANY wakes of any kind within the window trips it the same way. The record is a small
+// file in the temp folder, one per Codex session, because every wait is a new process.
+const WINDOW_MS = 10 * 60 * 1000;
+const COOLDOWN_MS = 15 * 60 * 1000;
+const MAX_SAME = 3;
+const MAX_ANY = 12;
+
+function guardFile(env) {
+  return join(env.WAKE_GUARD_DIR || tmpdir(), `room-chat-ai-wake-${String(env.CODEX_THREAD_ID).replace(/[^A-Za-z0-9-]/g, '')}.json`);
+}
+
+// Same contract as wakeCodex: returns a text to report (an error or a suppressed wake), or null.
+export async function guardedWake(key, message, env = process.env, now = Date.now()) {
+  if (!env.CODEX_THREAD_ID) return wakeCodex(message, env);
+  const file = guardFile(env);
+  let state = { wakes: [], tripped: {} };
+  try { state = { wakes: [], tripped: {}, ...JSON.parse(readFileSync(file, 'utf8')) }; } catch { /* first wake */ }
+  state.wakes = state.wakes.filter((wake) => now - wake.t < WINDOW_MS);
+  state.tripped = Object.fromEntries(Object.entries(state.tripped).filter(([, until]) => until > now));
+  const save = () => { try { writeFileSync(file, JSON.stringify(state)); } catch { /* the guard must never break a wake */ } };
+
+  if (state.tripped[key]) {
+    save();
+    return 'Loop guard: this result already woke the agent repeatedly, so it is not waking it again for a while.';
+  }
+  const same = state.wakes.filter((wake) => wake.key === key).length;
+  let outgoing = message;
+  if (same >= MAX_SAME || state.wakes.length >= MAX_ANY) {
+    state.tripped[key] = now + COOLDOWN_MS;
+    const count = same >= MAX_SAME ? same : state.wakes.length;
+    outgoing = `LOOP GUARD: you were woken ${count} times in the last 10 minutes ${same >= MAX_SAME ? 'with the same result' : 'in quick succession'} and nothing changed. `
+      + 'Do NOT run wait or next again and do not start another background wait. Tell yeebyor in this window that you are stuck, '
+      + `say what the last result was (${key.slice(0, 160)}), then wait for yeebyor's instructions.`;
+  }
+  state.wakes.push({ t: now, key });
+  save();
+  return wakeCodex(outgoing, env);
 }

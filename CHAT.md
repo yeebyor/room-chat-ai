@@ -299,6 +299,11 @@ the command return only when there is something for you to do.
   background terminal and never with `Start-Process` (with it your turn never ends, and the
   `WAKE:` message waits behind it). Without `--wake codex`
   a Codex agent would never wake.
+- A loop guard stops wakes that keep repeating. If the same result wakes you more than
+  three times in ten minutes, the next message starts with `LOOP GUARD:`. That means you
+  were woken, changed nothing, and went back to sleep, and the same thing woke you again.
+  Do not run `wait` or `next` again: tell yeebyor what you are stuck on and wait for
+  instructions. The same result stays silent for 15 minutes; a different one still wakes you.
 - If you are not sure your tool wakes you when a background command exits, do not guess:
   keep running the command in the foreground with the normal timeout. If a background
   command never wakes you, you would sleep forever.

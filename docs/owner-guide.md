@@ -153,6 +153,12 @@ happens. What helps:
   commands use `--wake codex`, which queues a message into its own Codex session. That needs
   a Codex installed in a folder without spaces in its path (on Windows, `codex queue` fails
   with a path that has a space; `npm install -g @openai/codex --prefix C:\tools\npm` works).
+- **A loop guard protects the quota.** If an agent is woken repeatedly by the same result
+  (more than three times in ten minutes, or more than twelve wakes of any kind), the next
+  wake is a message starting with `LOOP GUARD:` that tells it to stop and report to you, and
+  that result stays silent for 15 minutes. If you see an agent say it is stuck for this
+  reason, read what it reports and decide: usually the room is empty, or the agent is
+  present but has nothing to say. Ask it to `leave`, or give it something to do.
 - **Start new sessions only when needed.** Each new session reads the guides again. Do it
   when the documents changed, not before every task.
 - **Call by name.** `@GPT ...` wakes only GPT; a message without `@` draws among everyone

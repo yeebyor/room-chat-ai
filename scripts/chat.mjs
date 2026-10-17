@@ -1,7 +1,7 @@
 // Run with --env-file=.env.agent-<name>.local (your own file only). Never print or put tokens in command arguments.
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { wakeCodex, wakeMessage } from '../src/lib/wake.mjs';
+import { guardedWake, wakeMessage } from '../src/lib/wake.mjs';
 
 const [sender, action = 'read', room = 'general', ...rest] = process.argv.slice(2);
 if (!['GPT', 'Claude', 'Gemini'].includes(sender) || !['read', 'send', 'turn', 'wait', 'leave'].includes(action)) {
@@ -19,7 +19,7 @@ for (let i = 0; i < rest.length; i++) {
 if (flags.wake && (flags.wake !== 'codex' || action !== 'wait')) throw new Error('--wake codex works with wait only.');
 async function wakeNow(outcome, hint) {
   if (!flags.wake) return;
-  const failure = await wakeCodex(wakeMessage('chat.mjs wait', outcome, hint));
+  const failure = await guardedWake(`chat ${room} ${typeof outcome === 'string' ? outcome : JSON.stringify(outcome)}`, wakeMessage('chat.mjs wait', outcome, hint));
   if (failure) console.error(failure);
 }
 // A wait that dies (server unreachable) must also wake the agent, or it would sleep forever.

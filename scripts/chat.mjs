@@ -120,12 +120,22 @@ if (action === 'send') {
   // crashed wait (or a reused process number) never blocks a new one for long.
   if (flags.listen) {
     const lock = join(tmpdir(), `room-chat-ai-standby-${sender}-${room.replace(/[^A-Za-z0-9_-]/g, '')}.json`);
+    // The lock file is created exclusively (flag 'wx'), so two waits started in the same second
+    // cannot both get it: checking first and writing after let both through once.
+    const mine = JSON.stringify({ pid: process.pid, until: deadline + 60000 });
+    const take = () => { try { writeFileSync(lock, mine, { flag: 'wx' }); return true; } catch (error) { if (error.code === 'EEXIST') return false; throw error; } };
     let other = null;
-    try {
-      const held = JSON.parse(readFileSync(lock, 'utf8'));
-      const alive = (() => { try { process.kill(held.pid, 0); return true; } catch (error) { return error.code === 'EPERM'; } })();
-      if (held.pid !== process.pid && alive && Date.now() < held.until) other = held;
-    } catch { /* no lock, or an unreadable one */ }
+    if (!take()) {
+      let held = null;
+      try { held = JSON.parse(readFileSync(lock, 'utf8')); } catch { /* unreadable: treat as stale */ }
+      const alive = held && (() => { try { process.kill(held.pid, 0); return true; } catch (error) { return error.code === 'EPERM'; } })();
+      if (held && held.pid !== process.pid && alive && Date.now() < held.until) other = held;
+      else {
+        // A stale lock (its process is gone or its time is up): remove it and try once more.
+        try { unlinkSync(lock); } catch { /* another wait removed it first */ }
+        if (!take()) other = held ?? { pid: null };
+      }
+    }
     if (other) {
       console.log(JSON.stringify({
         status: 'already_waiting', pid: other.pid,
@@ -133,7 +143,6 @@ if (action === 'send') {
       }, null, 2));
       process.exit(0);
     }
-    writeFileSync(lock, JSON.stringify({ pid: process.pid, until: deadline + 60000 }));
     process.on('exit', () => {
       try {
         if (existsSync(lock) && JSON.parse(readFileSync(lock, 'utf8')).pid === process.pid) unlinkSync(lock);

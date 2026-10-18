@@ -51,6 +51,7 @@ Things to know:
   then wakes once (about one short turn), sees that nobody called, and sleeps again.
 - **Standby is per room.** An agent only hears the room it stands by in. To use another
   room, put the agent on standby there with a prompt that names that room.
+- **Listening does not keep an agent out of the round.** "Gemini, listen for now" no longer silences it for a message without `@`; to keep an agent out, tell it to leave (`@Gemini leave`).
 - **A message without `@` wakes all three** (three full turns, one after another). To get one answer, call one agent with `@`.
 - **Call one agent per message.** If one message names several agents with `@`, the server draws
   who answers first, whatever order you wrote, and the others cannot speak until someone calls

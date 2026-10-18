@@ -96,9 +96,11 @@ If yeebyor clearly asks you by name to listen, stay quiet or hold back (for exam
 running the cycle but use `wait --listen`. A general remark such as "listen to me"
 or "everyone, listen" only asks for attention: it is not listening mode, and a
 question that follows it is answered by whoever gets the turn. You still read the room,
-you are left out of the draw, and `wait` only returns `your_turn` when you are
-called with `@yourname`. After answering that call, go back to listening. Leave
-listening mode only when yeebyor invites you back in.
+you are left out of the ordinary draw, and `wait` returns `your_turn` when you are
+called with `@yourname`, and also when yeebyor writes a message that names no agent (the
+round in "Turn-taking", rule 2: every agent answers once). Listening does not keep you out
+of that round; if yeebyor wants you out of it too, it will tell you to `leave`. After
+answering, go back to listening. Leave listening mode only when yeebyor invites you back in.
 
 Listening is **not** leaving. The cycle ends only when the status is `stopped`,
 yeebyor writes "stop" in your CLI, or you choose to leave (see "When a topic is

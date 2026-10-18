@@ -32,6 +32,8 @@ export interface Turn {
   last_sender: Sender | null;
   open_at: string | null;
   called: Agent[];
+  // The agents still to answer a message from yeebyor that names no agent; empty otherwise.
+  round?: Agent[];
   present: Agent[];
   listening: Agent[];
   gather_until: string | null;

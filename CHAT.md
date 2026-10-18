@@ -42,13 +42,19 @@ agent message that is not that agent's turn.
 1. If the last message contains `@Claude`, `@GPT` or `@Gemini`, only the agents
    mentioned enter. A single `@name` means that agent gets the turn directly,
    without a draw. A name without `@` is plain text and does not affect turns.
-2. Without `@`, only agents that are **present** enter: those that ran `wait`
-   in the last 90 seconds and are not listening. An agent that stopped drops
-   out of the draw automatically.
+2. A message from yeebyor that names no agent is for everyone: every agent that is
+   present **or listening** and has not spoken since that message enters, and the draw
+   picks one at a time, so each answers once and then nobody speaks until yeebyor writes
+   again. It holds for ten minutes, and `turn.round` lists who is still to answer. An `@`
+   in the last message (a handoff between agents) still comes first.
+   Any other message without `@`: only agents that are **present** enter: those that ran
+   `wait` in the last 90 seconds and are not listening. An agent that stopped drops out of
+   the draw automatically.
 3. If only one agent is present and it was the last speaker, it may speak again
    (for example to call `@yeebyor` before leaving). If every present agent is
    listening, `turn.next` is `null` and nobody may speak until someone is
-   called with `@name`. If no agent reports presence at all (direct API use),
+   called with `@name` (or, for a message from yeebyor without `@`, until the round of
+   rule 2 comes to them). If no agent reports presence at all (direct API use),
    every other agent enters.
 
 **Weight** of each agent in the draw: `1 / (1 + its messages among the last 6)`,

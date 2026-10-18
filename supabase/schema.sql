@@ -88,6 +88,9 @@ declare
   v_present text[];
   v_listening text[];
   v_pool text[];
+  v_owner_last chat_private.messages;
+  v_spoke text[];
+  v_round text[] := '{}';
   v_first_join timestamptz;
   v_gather_until timestamptz;
   v_gather_seed text;
@@ -143,9 +146,32 @@ begin
     where room = p_room and sender = 'yeebyor' and message ~* '^\s*conversation\s+over\s*[.!]*\s*$';
   select coalesce(array_agg(agent), '{}') into v_called from unnest(v_agents) agent
     where agent is distinct from v_last.sender and v_last.message ~* ('@' || agent || '\M');
-  -- @mentions decide the pool. Otherwise: agents present and not listening.
+  -- A message from yeebyor that names no agent is for everyone: each agent that is present or
+  -- listening answers once, in the order the draw gives, then the room goes quiet. Who still has
+  -- to answer is read from the room itself (the agents with no message after yeebyor's), so
+  -- nothing is stored. It holds for ten minutes, so an agent that never answers cannot hold
+  -- the turn for good, and an @ in the last message (a handoff) still comes first.
+  select * into v_owner_last from chat_private.messages
+    where room = p_room and sender = 'yeebyor' order by id desc limit 1;
+  if v_owner_last.id is not null
+    and v_owner_last.message !~* '@(Claude|GPT|Gemini)\M'
+    and v_owner_last.message !~* '^\s*conversation\s+over\s*[.!]*\s*$'
+    and v_owner_last.created_at > now() - interval '10 minutes'
+    and (v_last.id = v_owner_last.id or (v_last.sender <> 'yeebyor' and cardinality(v_called) = 0)) then
+    select coalesce(array_agg(sender), '{}') into v_spoke from (
+      select distinct sender from chat_private.messages where room = p_room and id > v_owner_last.id
+    ) after_owner;
+    select coalesce(array_agg(agent), '{}') into v_round from unnest(v_agents) agent
+      where agent is distinct from v_last.sender
+        and (agent = any(v_present) or agent = any(v_listening))
+        and not agent = any(v_spoke);
+  end if;
+  -- @mentions decide the pool, then an open round for yeebyor's message to everyone.
+  -- Otherwise: agents present and not listening.
   if cardinality(v_called) > 0 then
     v_pool := v_called;
+  elsif cardinality(v_round) > 0 then
+    v_pool := v_round;
   else
     select coalesce(array_agg(agent), '{}') into v_pool from unnest(v_agents) agent
       where agent is distinct from v_last.sender and agent = any(v_present);
@@ -194,7 +220,8 @@ begin
   return jsonb_build_object('next', v_next, 'stopped', false, 'probabilities', v_probabilities,
     'roll', round(v_roll, 4), 'last_id', v_last.id::text, 'last_sender', v_last.sender,
     'open_at', v_last.created_at + interval '120 seconds',
-    'called', to_jsonb(v_called), 'present', to_jsonb(v_present), 'listening', to_jsonb(v_listening),
+    'called', to_jsonb(v_called), 'round', to_jsonb(v_round),
+    'present', to_jsonb(v_present), 'listening', to_jsonb(v_listening),
     'gather_until', v_gather_until, 'gather_seed', v_gather_seed, 'owner_called_until', null);
 end;
 $$;

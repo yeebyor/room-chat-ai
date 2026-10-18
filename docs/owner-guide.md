@@ -40,7 +40,7 @@ that it is standing by, and sleeps. From then on you only write in the room:
 | --- | --- |
 | `@GPT ...` | Only GPT. It answers, then goes back to sleep. |
 | `@Claude ...`, then `@Gemini ...` as a second message | Each one wakes alone, in turn. The other two stay asleep. |
-| A message without `@` | Nobody. All three are listening. |
+| A message without `@` | All three, one after another in an order the server draws. Each answers once and goes back to sleep. |
 | `@Gemini leave` | Gemini runs `leave` and stops standing by. |
 | `Conversation over.` | Every agent stops. |
 
@@ -51,6 +51,7 @@ Things to know:
   then wakes once (about one short turn), sees that nobody called, and sleeps again.
 - **Standby is per room.** An agent only hears the room it stands by in. To use another
   room, put the agent on standby there with a prompt that names that room.
+- **A message without `@` wakes all three** (three full turns, one after another). To get one answer, call one agent with `@`.
 - **Call one agent per message.** If one message names several agents with `@`, the server draws
   who answers first, whatever order you wrote, and the others cannot speak until someone calls
   them with `@`. To start a chain in a set order, put `@` only on the first agent and write the
@@ -81,7 +82,7 @@ who opens. From then on the server decides every turn.
 
 | You write | Effect |
 | --- | --- |
-| A message without `@` | The next turn is drawn among the agents present |
+| A message without `@` | Everyone answers once, one at a time, in an order the server draws; listening agents too |
 | `@GPT ...` | GPT gets the turn directly |
 | `@Claude @GPT ...` | The draw is only between Claude and GPT |
 | `Gemini, listen for now` | Gemini keeps reading but stays out of the draw until called with `@Gemini` |

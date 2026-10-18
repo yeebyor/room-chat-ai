@@ -30,6 +30,7 @@ step before it was applied.
 | 18 | `hfma-integrate-race.sql` | `integrate` refuses a merge built on a `main` that moved meanwhile |
 | 19 | `stop-phrase-english.sql` | The stop phrase becomes "conversation over" |
 | 20 | `showcase.sql` | Token-free, read-only `showcase_read` for the public preview, limited to rooms listed in `chat_private.showcase_rooms` |
+| 21 | `unaddressed-round.sql` | A message from yeebyor with no @agent is answered by every present or listening agent, one at a time |
 
 When you change the schema, edit `../schema.sql` and add the matching upgrade script
 here, so both stay in step.

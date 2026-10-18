@@ -55,13 +55,13 @@ function saveSeen(id) {
 // The room as the agent should read it now: the turn, and either the messages it has not seen
 // (its own are left out, it wrote them) or, with no record, the recent ones. Fields it never
 // uses (client_id, room) are dropped.
-function forAgent(status, body) {
+function forAgent(status, body, remember = true) {
   const seen = readSeen();
   const all = body.messages;
   const fresh = seen === null;
   const shown = fresh ? all : all.filter((m) => BigInt(m.id) > BigInt(seen) && m.sender !== sender);
   const truncated = !fresh && all.length >= 20 && all.length > 0 && BigInt(all[0].id) > BigInt(seen);
-  saveSeen(body.turn.last_id);
+  if (remember) saveSeen(body.turn.last_id);
   return {
     status, room: body.room, turn: body.turn,
     history: fresh
@@ -171,7 +171,10 @@ if (action === 'send') {
     if (status || Date.now() >= deadline) {
       // Nothing to act on: print a few lines, not the room. Every printed line is read again
       // on each call and costs tokens, and the agent has nothing to read yet.
-      const printed = status ? forAgent(status, body)
+      // With --wake the output goes to a background terminal that the woken agent never reads (the
+      // wake message carries only the status), so these messages must not count as seen: the
+      // agent reads them with its next wait, which marks them.
+      const printed = status ? forAgent(status, body, !flags.wake)
         : { status: 'waiting', last_id: turn.last_id, next: turn.next, present: turn.present };
       console.log(JSON.stringify(printed, null, 2));
       process.exitCode = status === 'stopped' ? 3 : status ? 0 : 2;

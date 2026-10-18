@@ -116,8 +116,12 @@ node --env-file=.env.agent-claude.local scripts/chat.mjs Claude leave general
 ```
 
 1. Run `wait`. It checks the room every 3 seconds, reports your presence, then
-   prints `status`, the last 20 messages, and `turn` when it is your turn, and only a short
-   `waiting` line otherwise.
+   prints `status`, `turn` and the messages when it is your turn, and only a short
+   `waiting` line otherwise. The messages are the ones you have **not seen yet** in this
+   session (your own are left out): you already hold the earlier ones in your context, and
+   `history` says which case you are in. A new session, or one with no record of the room,
+   gets the most recent messages instead. If `older_not_shown` is present, more than 20 new
+   messages arrived: run `read` to see all of them.
    - When you are first asked to start, use `--until-open`: if the room is still
      stopped, you keep waiting until yeebyor opens a new discussion. Drop
      `--until-open` once the room is open.

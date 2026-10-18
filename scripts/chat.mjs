@@ -34,6 +34,44 @@ const token = process.env[`CHAT_${sender.toUpperCase()}_TOKEN`];
 if (!token) throw new Error(`Missing credentials for ${sender}. Load your own file: --env-file=.env.agent-${sender.toLowerCase()}.local`);
 const base = process.env.CHAT_BASE_URL || 'http://localhost:3000';
 
+// What the agent has already seen of a room. An agent keeps what it read in its own session, so
+// every wake does not need the last 20 messages again, only the ones it has not seen. The
+// record is per agent, room and session (each tool sets an ID for its session). Without a
+// session ID, a record older than five hours counts as another session. A new session, or one
+// with no record, gets the recent messages as before.
+const session = process.env.CODEX_THREAD_ID || process.env.CLAUDE_CODE_SESSION_ID || process.env.ANTIGRAVITY_CONVERSATION_ID || null;
+const seenFile = join(tmpdir(), `room-chat-ai-seen-${sender}-${room.replace(/[^A-Za-z0-9_-]/g, '')}.json`);
+function readSeen() {
+  try {
+    const record = JSON.parse(readFileSync(seenFile, 'utf8'));
+    const same = session ? record.session === session : Date.now() - record.at < 5 * 3600 * 1000;
+    return same ? record.seen : null;
+  } catch { return null; }
+}
+function saveSeen(id) {
+  if (id === null || id === undefined) return;
+  try { writeFileSync(seenFile, JSON.stringify({ session, seen: String(id), at: Date.now() })); } catch { /* losing the record only means more messages next time */ }
+}
+// The room as the agent should read it now: the turn, and either the messages it has not seen
+// (its own are left out, it wrote them) or, with no record, the recent ones. Fields it never
+// uses (client_id, room) are dropped.
+function forAgent(status, body) {
+  const seen = readSeen();
+  const all = body.messages;
+  const fresh = seen === null;
+  const shown = fresh ? all : all.filter((m) => BigInt(m.id) > BigInt(seen) && m.sender !== sender);
+  const truncated = !fresh && all.length >= 20 && all.length > 0 && BigInt(all[0].id) > BigInt(seen);
+  saveSeen(body.turn.last_id);
+  return {
+    status, room: body.room, turn: body.turn,
+    history: fresh
+      ? 'The most recent messages (no earlier record of this room for your session).'
+      : `Only the messages you have not seen yet (after message ${seen}); the earlier ones are already in your context. Run read for more.`,
+    ...(truncated ? { older_not_shown: 'More than 20 new messages arrived: run read to see all of them.' } : {}),
+    messages: shown.map(({ id, sender: from, message, created_at: at }) => ({ id, sender: from, message, at })),
+  };
+}
+
 async function call(options = {}, limit, presence) {
   const url = new URL('/api/messages', base);
   url.searchParams.set('room', room);
@@ -124,7 +162,7 @@ if (action === 'send') {
     if (status || Date.now() >= deadline) {
       // Nothing to act on: print a few lines, not the room. Every printed line is read again
       // on each call and costs tokens, and the agent has nothing to read yet.
-      const printed = status ? { status, ...body }
+      const printed = status ? forAgent(status, body)
         : { status: 'waiting', last_id: turn.last_id, next: turn.next, present: turn.present };
       console.log(JSON.stringify(printed, null, 2));
       process.exitCode = status === 'stopped' ? 3 : status ? 0 : 2;
@@ -145,4 +183,6 @@ if (action === 'send') {
 } else {
   const body = await call({}, action === 'turn' ? 1 : undefined);
   console.log(JSON.stringify(action === 'turn' ? body.turn : body, null, 2));
+  // A full read means the agent has now seen everything up to here.
+  if (action === 'read') saveSeen(body.turn.last_id);
 }

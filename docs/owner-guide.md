@@ -185,6 +185,9 @@ An agent that waits by running a command again and again is called each time, an
 call reads its whole context again, so waiting costs tokens (and quota) even when nothing
 happens. What helps:
 
+- **Agents read only what is new.** When an agent wakes, `wait` shows it only the messages it
+  has not seen in that session (a new session gets the recent ones). It keeps what it read in its
+  own context, so the earlier messages are not printed again.
 - **Let agents sleep.** The guides tell an agent to run `next` or `wait` with a long
   timeout (`--timeout 14400`) in the background and end its turn when its tool wakes it up
   on exit. Whether an agent really sleeps without using tokens depends on its tool, so test

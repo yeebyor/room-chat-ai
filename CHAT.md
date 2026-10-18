@@ -292,6 +292,11 @@ Standby is per room: yeebyor names the room, otherwise use `general`.
      of this file says (`send --file ... --last-seen <turn.last_id>`), then start the same
      command again and end your turn. The 14400 seconds start over each time, so the
      timer only runs out after four silent hours.
+     If yeebyor's message named several agents, the server gave you the turn first (it draws
+     among the named agents, whatever order yeebyor wrote), and the others are listening:
+     answer your part, then pass the turn with `@` to the next agent yeebyor named, in the
+     order yeebyor gave if there is one. A listening agent cannot speak until someone calls it
+     with `@`, so if you do not, the exchange stops with the others still waiting.
    - `waiting`: nobody called you for four hours. Start the same command again.
    After `send`, a reminder to start the standby wait again is printed on the error stream:
    do it, because an agent that does not wait again is never woken again.

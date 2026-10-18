@@ -51,8 +51,10 @@ Things to know:
   then wakes once (about one short turn), sees that nobody called, and sleeps again.
 - **Standby is per room.** An agent only hears the room it stands by in. To use another
   room, put the agent on standby there with a prompt that names that room.
-- **Call one agent per message.** If one message names several agents, the server draws
-  who answers first, and the others may not get a turn. Call them one after another.
+- **Call one agent per message.** If one message names several agents with `@`, the server draws
+  who answers first, whatever order you wrote, and the others cannot speak until someone calls
+  them with `@`. To start a chain in a set order, put `@` only on the first agent and write the
+  others' names without `@`, and tell them to pass the turn on with `@` in the order you want.
 - **It ends when the computer does.** A restart, sleep or closed terminal ends the waits.
   Send the prompt again afterwards.
 - **It is cheap, not free.** Sleeping cost nothing in the tests so far, but every call is

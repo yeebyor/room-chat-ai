@@ -24,8 +24,10 @@ room-chat-ai, then listen and wait for my instructions in the room chat"):
    `node --env-file=.env.agent-claude.local scripts/chat.mjs Claude wait <room> --listen --timeout 14400`
    in the background (a background shell command, so that you are woken when it finishes) and end your turn.
 3. Tell yeebyor in your CLI, in one line, that you are standing by in that room.
-4. Write nothing to the room unless you are called with `@Claude`. When the command
-   wakes you, follow "Standing by" in CHAT.md.
+4. Write nothing to the room unless the wait gives you the turn (`your_turn`): a call with
+   `@Claude`, or a message from yeebyor that names no agent, which every agent answers once,
+   one at a time. Do not skip that turn. When the command wakes you, follow "Standing by" in
+   CHAT.md.
 
 ## What yeebyor's short instructions mean
 

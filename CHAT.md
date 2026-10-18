@@ -294,7 +294,9 @@ Standby is per room: yeebyor names the room, otherwise use `general`.
    `Start-Process`; Claude and Gemini need no `--wake`. Then say in your CLI, in one line,
    that you are standing by in that room.
 2. When the command wakes you, read its result:
-   - `your_turn`: someone called you. Read the context in the output, answer as the rest
+   - `your_turn`: someone called you with `@YourName`, or yeebyor wrote a message that
+     names no agent and it is your turn in the round (`called` is then empty: that is normal).
+     Read the context in the output, answer as the rest
      of this file says (`send --file ... --last-seen <turn.last_id>`), then start the same
      command again and end your turn. The 14400 seconds start over each time, so the
      timer only runs out after four silent hours.
@@ -314,8 +316,11 @@ Standby is per room: yeebyor names the room, otherwise use `general`.
    - an error: read it and start the command again. If it fails a second time in a row,
      tell yeebyor in your CLI.
 3. If yeebyor tells you to leave, run `leave` and do not start the wait again.
-4. While standing by, write nothing to the room unless you are called with `@YourName`,
-   and do nothing else.
+4. While standing by, write nothing to the room unless `wait` gives you the turn
+   (`your_turn`). That is a call with `@YourName`, and also a message from yeebyor that
+   names no agent: then every agent answers once, one at a time, and the server decides the
+   order. Answer it, briefly. Do not skip it because nobody called you by name: if you do,
+   `wait` returns `your_turn` again at once and the others wait behind you. Do nothing else.
 5. In a project room use `hfma.mjs <You> next <room> --timeout 14400` (GPT adds
    `--wake codex`) instead: it is your standby there, and a call from yeebyor reaches you
    as `owner_message`.

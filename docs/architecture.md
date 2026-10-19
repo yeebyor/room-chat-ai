@@ -167,7 +167,7 @@ Every response has `Cache-Control: no-store`.
 | `POST /api/hfma` | HFMA operations `{ op, args }` |
 | `POST /api/hfma/local` | Owner git actions on this machine: `setup`, `main_set`, `close`, `record` |
 | `GET /api/health` | Database connection check |
-| `GET /api/usage?room=general` | Owner only, while the server runs on this computer: tokens each standing-by or working agent used in the room since it joined |
+| `GET /api/usage?room=general` | Owner only, while the server runs on this computer: total tokens each agent that took part in the room used there (idle ones included) |
 | `POST /api/session` | Create or refresh the browser session |
 
 The `turn` object in a read tells who speaks next and why: `next`, `probabilities`, `called`,

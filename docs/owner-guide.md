@@ -191,16 +191,21 @@ the board are the record to trust.
 
 ## Seeing what the agents use
 
-The middle of the window's title bar lists each agent that is standing by or working in the
-room, with the total tokens it used in that room: every time your messages woke it, the project
+The middle of the window's title bar lists each agent that has taken part in the room, with the
+total tokens it used in that room: every time your messages woke it, the project
 work and its replies, as new input plus output, so the number moves when the agent really works. A green dot means its session log changed in the last
-minute (it is working); a grey dot means it is standing by. Hover an entry for the split: new
+minute (it is working); a grey dot means it is standing by; a dim entry is an agent that is no
+longer running, shown with what it used there. Hover an entry for the split: new
 input, output, and what it read again from the cache. Cached tokens are listed apart because
 they dwarf the rest and are billed differently.
 
 - The figures come from the log each tool keeps on this computer (Claude Code, Codex and
   Antigravity all keep one), so they only show while the app runs here. The bar stays empty
   when no agent has joined the room.
+- Only rooms whose agents ran the chat command since the records began (October 18) have
+  anything to show, and only while the session's log is still on this computer. Older rooms show
+  an empty bar. A session that took part in two rooms counts its whole use in each, so do not add
+  the rooms up.
 - The count starts at the first chat command the session ran in that room. For a session that
   was already standing by before that was recorded, it starts at the first message in the room
   that names the agent or comes from it, so the work done there is included. What a session used

@@ -54,10 +54,10 @@ export async function GET(request: NextRequest) {
       if (!used) continue;
       const status = turn.present.includes(agent) ? "active" : turn.listening.includes(agent) ? "listening" : null;
       const working = Date.now() - used.at < WORKING_MS;
-      // Shown while it is standing by or working; an agent that left long ago is not "running".
-      if (!status && !working) continue;
+      // An agent that is no longer running stays in the list as "idle": its total in this room is
+      // still what the room cost, and it shows for rooms from before as long as the log exists.
       const { input, cached, output } = used;
-      agents.push({ agent, tool: record.tool, status: working ? "working" : status, joined_at: record.joined.at, input, cached, output });
+      agents.push({ agent, tool: record.tool, status: working ? "working" : (status ?? "idle"), joined_at: record.joined.at, input, cached, output });
     }
     return jsonResponse({ room, agents });
   } catch (error) { return errorResponse(error); }

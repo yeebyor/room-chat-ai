@@ -173,7 +173,7 @@ work is governed by HFMA (see [HFMA.md](HFMA.md)). Work status lives in the
 database, not in the chat: a message saying "done" means nothing; only the task
 status counts. The room is still the place to discuss and announce.
 
-**Do not stop when you have to wait.** Drive your work with `next`:
+**Do not stop when you have to wait.** Ask `next` what to do now:
 
 ```powershell
 node --env-file=.env.agent-claude.local scripts/hfma.mjs Claude next Project-1
@@ -191,47 +191,58 @@ keeping your claims alive, then prints one `action`:
 | `review` | Another team's task is waiting: `verify <id>`, check it, then `review <id>`. If `previous_feedback` is listed, check every item was addressed |
 | `work` | You hold this task: continue, commit, then `submit <id>`. If `feedback` is listed, address every item first |
 | `claim` | Your task is ready: `claim <id>` |
-| `waiting` (exit 2) | Nothing to do yet. **Sleep on `next` again** (background, `--timeout 14400`). This does not mean you are done |
+| `waiting` (exit 2) | Nothing to do yet. **Sleep until someone calls you** (see "Hand-offs in a project"). This does not mean you are done |
 | `follow_up` | (Orchestrator) A reviewer added findings after a task was approved: create a follow-up task for them, or answer with `note <task>` saying why no change is needed |
 | `all_done` | (Orchestrator) Every task is done: call `@yeebyor` to assess |
 | `closed` (exit 3) | yeebyor closed the project: stop |
 
 You **may only stop** when `next` answers `closed`, or yeebyor tells you to stop.
-Keep using `next` after your own tasks are finished, and even when every task is
+Stay in the project, asleep, after your own tasks are finished, and even when every task is
 DONE: another team's task may need you as a reviewer, the orchestrator may still
 create a follow-up task for you, and yeebyor may call you in the room. To wait for
 one specific task, use `wait <id> --until DONE`. If `integrate` says main moved
 while you integrated (another team integrated at the same moment), run
 `integrate` again: the task stays `APPROVED`.
 
-### Hand-offs: announce in the room, then sleep
+### Hand-offs in a project: call the next agent in the room, then sleep
 
-`next` is how you wait, and you wait by sleeping: run it in the background with
-`--timeout 14400` (GPT adds `--wake codex`) and end your turn, as in "Sleeping while you
-wait". Never run it in the foreground in a loop: every return reads your whole context again
-and costs quota for nothing. And whenever you hand something to another agent, say so in the
-room first, then sleep. yeebyor follows the project in the room, and nobody else knows what
-you just did. To say it: `chat.mjs <You> read <room>`, then `send --file ... --last-seen
-<turn.last_id>`, then `leave`, the same steps as for an `owner_message`.
+In a project you wait the way you stand by (see "Standing by"): run
+`chat.mjs <You> wait <room> --listen --timeout 14400` in the background (GPT adds
+`--wake codex`) and end your turn. It wakes you only when someone calls you with
+`@YourName`. So **every hand-off is a message in the room that calls the agent who is
+next**, and after it you sleep again. Never poll in the foreground: every return reads your
+whole context again and costs quota for nothing. The server lets an agent in a project room
+send a message that calls another agent even when it does not hold the turn.
 
-1. **You submitted a task.** Pick one other agent as reviewer and call it with `@Name`: the
-   project, the task (id and title), the commit, what the task is for, and what to check
-   against the charter. Then sleep.
-2. **You were woken with `review`.** `verify`, read the changes, `review approve|reject`.
-   Then tell the author with `@Author`: approved, or rejected with the findings in a few
-   sentences. Then sleep.
-3. **Your task was rejected** (you wake with `work` and `feedback`). Fix it, commit, `submit`
-   again, call the reviewer again and say what you changed. Then sleep.
-4. **Your task was approved** (you wake with `integrate`). Run `integrate <id>`: the task is
-   DONE. Then say in the room that it is done and call the agent whose next task is now
-   ready (`integrate` prints which). If every task is done and you are the orchestrator, call
-   `@yeebyor`. Then sleep.
-5. **The agent you called** wakes by itself with `claim` or `review`, because `next` sees the
-   task change. The message is not what wakes it: agents sleeping in `next` do not read the
-   room, only a call from yeebyor reaches them (`owner_message`). The message is for yeebyor,
-   and for an agent that is only listening.
+The task status in HFMA stays the only truth about the work; the room is the pager and the
+place where yeebyor follows the project. To say something: `chat.mjs <You> read <room>`,
+then `chat.mjs <You> send <room> --file ... --last-seen <turn.last_id>`. When a call wakes
+you and you do not know what to do, run `hfma.mjs <You> next <room> --timeout 5`: it prints
+your next action once and returns.
 
-`submit`, `review` and `integrate` print a reminder of the next step when they finish.
+1. **yeebyor sets the project up** and calls the orchestrator ("the project is set up, you
+   are the orchestrator"). The orchestrator creates the tasks with their dependencies and
+   starts the first one: it does it itself (no message needed), or it calls the agent who owns
+   it with `@Name` (the project, the task id and title, what to do). A reply to yeebyor is
+   optional.
+2. **You finished a task** (`submit`). Call one other agent in the room as the reviewer: the
+   project, the task (id and title), the commit, what it is for and what to check against the
+   charter. Then sleep.
+3. **You were called to review.** `verify`, read the changes, `review approve|reject`. Then
+   call the author in the room with the verdict. Rejected: the findings in a few sentences, and
+   ask them to fix it and call you again. Approved: say so and ask them to run `integrate`,
+   which makes the task DONE. Then sleep.
+4. **Your task was rejected.** Fix it, commit, `submit` again, call the reviewer again and say
+   what you changed. Then sleep.
+5. **Your task was approved.** Run `integrate <id>`: the task is DONE. Then say in the room that
+   it is DONE and call the orchestrator so the next task can start. Then sleep. The
+   orchestrator skips this call and goes to step 6.
+6. **The orchestrator was called** (or finished a task itself). Look at the board (`next
+   --timeout 5`) and call the agent whose task is now ready, or claim it if it is yours. When
+   every task is DONE, call `@yeebyor` to assess. Then sleep.
+
+An agent that does not make its call stops the project and nobody wakes. `submit`, `review`
+and `integrate` print a reminder of the call to make when they finish.
 
 ```powershell
 node --env-file=.env.agent-claude.local scripts/hfma.mjs Claude charter Project-1
@@ -352,9 +363,9 @@ Standby is per room: yeebyor names the room, otherwise use `general`.
    names no agent: then every agent answers once, one at a time, and the server decides the
    order. Answer it, briefly. Do not skip it because nobody called you by name: if you do,
    `wait` returns `your_turn` again at once and the others wait behind you. Do nothing else.
-5. In a project room use `hfma.mjs <You> next <room> --timeout 14400` (GPT adds
-   `--wake codex`) instead: it is your standby there, and a call from yeebyor reaches you
-   as `owner_message`.
+5. A project room works the same way: the standby wait above is also how you sleep in a
+   project, and every hand-off is a call in the room ("Hand-offs in a project"). Run
+   `hfma.mjs <You> next <room> --timeout 5` when you need to know what to do next.
 
 ## Sleeping while you wait
 

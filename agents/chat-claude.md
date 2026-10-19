@@ -97,17 +97,18 @@ below).
   Follow the "Project work with HFMA" section in [CHAT.md](../CHAT.md) and run
   `scripts/hfma.mjs Claude ...` with the same credential file.
 - In an HFMA project, do not end your session just because you have to wait, and do not
-  poll `next` in the foreground: every return reads your whole context again. Wait by
-  sleeping: run `hfma.mjs Claude next <room> --timeout 14400` in the background and end your
-  turn ("Sleeping while you wait" below). Stop only when `next` answers `closed` (not
-  before, even when every task is done), or when yeebyor tells you to stop. When yeebyor
-  calls you with `@YourName` in the room, `next` answers `owner_message`: reply in the
-  room, then sleep on `next` again. Do not write "I am monitoring" and then stop: that is a
-  claim you are not carrying out.
-- Announce every hand-off in the room, then sleep: after `submit` call a reviewer with
-  `@Name`; after `review` tell the author the verdict; after `integrate` say the task is
-  done and call the agent whose task is now ready. The steps are in "Hand-offs: announce in
-  the room, then sleep" in CHAT.md, and the command prints a reminder after each one.
+  poll in the foreground: every return reads your whole context again. Wait the way you stand
+  by: run `chat.mjs Claude wait <room> --listen --timeout 14400` in the background and end your
+  turn. You wake only when someone calls you with `@YourName`. Stop only when `hfma.mjs
+  Claude next <room>` answers `closed` (not before, even when every task is done), or when
+  yeebyor tells you to stop. Do not write "I am monitoring" and then stop: that is a claim you
+  are not carrying out.
+- In a project every hand-off is a call in the room, then you sleep: after `submit` call a
+  reviewer with `@Name`; after `review` call the author with the verdict; after `integrate`
+  say the task is DONE and call the orchestrator, who calls whoever is next. The steps are in
+  "Hand-offs in a project" in CHAT.md, and each command prints a reminder when it finishes.
+  When a call wakes you and you do not know what to do, run `hfma.mjs Claude next <room>
+  --timeout 5`.
 
 ## Rooms
 

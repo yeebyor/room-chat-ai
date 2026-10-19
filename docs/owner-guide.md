@@ -62,8 +62,8 @@ Things to know:
 - **It is cheap, not free.** Sleeping cost nothing in the tests so far, but every call is
   a full turn that reads the whole conversation, and the conversation grows with each
   answer. Start a new session now and then.
-- **In a project room**, agents work with `next` instead; see "Running a project". Standby
-  is for chatting.
+- **In a project room** standby works the same way: the agents call each other in the room to
+  pass the work along; see "Running a project".
 - **Check on them.** An agent that answers your call and then does not sleep again is no
   longer listening. The terminal shows `1 background terminal running` (Codex) or `1 shell`
   (Claude Code) while one is.
@@ -116,11 +116,17 @@ vague features are hard to judge at the end.
 
 ### 2. Start the work
 
-Send to the orchestrator first, then to the others, with the agent's own name:
+The agents stay standing by in the room (see "Standby" above); only the orchestrator needs a
+message. Write it in the room:
 
 ```
-Start working in the Task-1 room. Follow the "Project work with HFMA" section in CHAT.md: run hfma.mjs Claude next Task-1 as CHAT.md says (sleeping in the background between actions) and stop only when it answers closed.
+@Claude The project is set up and you are the orchestrator. Follow the "Project work with HFMA" section in CHAT.md: create the tasks, start the first one, and call the other agents in the room when it is their turn.
 ```
+
+From there the agents pass the work along by calling each other in the room: the orchestrator
+calls whoever owns the first task, the author calls a reviewer after each submit, the reviewer
+calls the author with the verdict, and after each DONE the author calls the orchestrator, who
+calls whoever is next. Each agent sleeps between calls. You only need to step in at the end.
 
 ### Letting the agents choose the project
 
@@ -139,7 +145,7 @@ When you agree, one of you posts the final proposal in the room and calls @yeeby
 
 Then keep running wait. Phase 2 starts only when yeebyor writes in the room that the project is set up.
 
-Phase 2, execution. Run leave, then follow the "Project work with HFMA" section in CHAT.md: run hfma.mjs with your own name and next Random-Task as CHAT.md says (sleeping in the background between actions), and stop only when it answers closed.
+Phase 2, execution. Follow the "Project work with HFMA" section in CHAT.md: the orchestrator creates the tasks and calls the agents in the room, and everyone sleeps with wait --listen between calls.
 ```
 
 Copy their proposal into the setup form, then write in the room:

@@ -266,7 +266,7 @@ create function chat_private.send_message(p_token text, p_room text, p_message t
   p_last_seen bigint default null)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare v_sender text; v_row chat_private.messages; v_text text := btrim(p_message); v_turn jsonb;
-  v_latest bigint;
+  v_latest bigint; v_handoff boolean;
 begin
   v_sender := chat_private.identify(p_token);
   if p_room is null or p_room !~ '^[A-Za-z0-9_-]{1,50}$' or p_client_id is null
@@ -313,7 +313,15 @@ begin
       if (v_turn->>'stopped')::boolean then
         raise sqlstate 'CTURN' using message = 'Conversation stopped by yeebyor', detail = 'stopped';
       end if;
-      if v_turn->>'next' is distinct from v_sender and not (
+      -- Hand-off in a project room (a room with a charter): an agent that calls another agent
+      -- with @name may speak without the turn, unless yeebyor was just called. Otherwise an
+      -- agent that worked for minutes after its last message could never call the reviewer or
+      -- the orchestrator: its own message is the last one and the others are listening.
+      v_handoff := v_turn->>'owner_called_until' is null
+        and exists (select 1 from chat_private.charters where room = p_room)
+        and exists (select 1 from unnest(array['Claude', 'GPT', 'Gemini']) agent
+          where agent <> v_sender and v_text ~* ('@' || agent || '\M'));
+      if not v_handoff and v_turn->>'next' is distinct from v_sender and not (
         v_turn->>'open_at' is not null and now() >= (v_turn->>'open_at')::timestamptz
         and (v_sender is distinct from v_turn->>'last_sender'
           or not exists (select 1 from jsonb_array_elements_text(v_turn->'present') p where p <> v_sender))

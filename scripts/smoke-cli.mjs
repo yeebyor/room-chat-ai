@@ -24,8 +24,24 @@ const fullTurn = {
   next: 'GPT', stopped: false, probabilities: { Claude: 0, GPT: 1, Gemini: 0 }, roll: 0.42, last_id: '7', last_sender: 'yeebyor',
   open_at: '2026-10-19T10:00:00Z', called: ['GPT'], round: [], present: ['GPT'], listening: [], gather_until: null, gather_seed: null, owner_called_until: null,
 };
+// Sends: the first `failPosts` answer 503 (Supabase cannot be reached), `rejectPosts` answers 409.
+const posts = [];
+let failPosts = 0;
+let rejectPosts = false;
 const server = createServer((req, res) => {
   res.setHeader('Content-Type', 'application/json');
+  if (req.method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => {
+      const data = JSON.parse(body);
+      posts.push(data);
+      if (failPosts > 0) { failPosts--; res.statusCode = 503; res.end(JSON.stringify({ error: 'Supabase cannot be reached right now. Try again.' })); }
+      else if (rejectPosts) { res.statusCode = 409; res.end(JSON.stringify({ error: 'It is not your turn.' })); }
+      else res.end(JSON.stringify({ message: { id: '8', room, sender: 'GPT', message: data.message, client_id: data.client_id, created_at: 'x' } }));
+    });
+    return;
+  }
   res.end(JSON.stringify({ room, messages, count: messages.length, turn: fullTurn }));
 });
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -33,7 +49,7 @@ await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 const home = mkdtempSync(join(tmpdir(), 'cli-home-'));
 const baseEnv = { ...process.env, HOME: home, USERPROFILE: home, CHAT_GPT_TOKEN: 'x', CHAT_BASE_URL: `http://127.0.0.1:${server.address().port}` };
 for (const name of ['CODEX_THREAD_ID', 'CLAUDE_CODE_SESSION_ID', 'ANTIGRAVITY_CONVERSATION_ID']) delete baseEnv[name];
-const run = (args, env = baseEnv) => new Promise((resolve) => execFile('node', ['scripts/chat.mjs', 'GPT', ...args], { env, cwd: repo }, (error, stdout, stderr) => resolve({ out: stdout, err: stderr, json: () => JSON.parse(stdout) })));
+const run = (args, env = baseEnv) => new Promise((resolve) => execFile('node', ['scripts/chat.mjs', 'GPT', ...args], { env, cwd: repo }, (error, stdout, stderr) => resolve({ code: error ? error.code : 0, out: stdout, err: stderr, json: () => JSON.parse(stdout) })));
 const record = () => JSON.parse(readFileSync(seenFile, 'utf8'));
 
 try {
@@ -59,6 +75,30 @@ try {
   assert.deepEqual(fresh.messages.map((m) => m.id), ['7']);
   assert.equal(fresh.turn.last_id, '7');
   assert.equal((await run(['read', room])).json().messages.length, 3, 'plain read prints the whole room');
+
+  // send: a passing server error is sent again by the script with the same client_id (so it can never
+  // post twice); a refusal (4xx) is not sent again.
+  const reply = join(home, 'reply.txt');
+  writeFileSync(reply, 'Kabar baik.');
+  failPosts = 1;
+  const retried = await run(['send', room, '--file', reply, '--last-seen', '7']);
+  assert.equal(retried.code, 0, retried.err);
+  assert.equal(retried.json().message.id, '8');
+  assert.equal(posts.length, 2, 'one try failed, the second got through');
+  assert.equal(posts[0].client_id, posts[1].client_id, 'the same client_id, so the server never stores it twice');
+  assert.match(retried.err, /try 1 of 3/);
+  posts.length = 0;
+  failPosts = 5;
+  const gaveUp = await run(['send', room, '--file', reply, '--last-seen', '7']);
+  assert.notEqual(gaveUp.code, 0, 'gives up after three tries');
+  assert.equal(posts.length, 3);
+  posts.length = 0;
+  failPosts = 0;
+  rejectPosts = true;
+  const refused = await run(['send', room, '--file', reply, '--last-seen', '7']);
+  assert.notEqual(refused.code, 0);
+  assert.equal(posts.length, 1, 'a refusal is not sent again');
+  rejectPosts = false;
 
   // The join record: written on the first command of a session in a room, kept by later ones, new for a new session.
   rmSync(seenFile, { force: true });
@@ -100,4 +140,4 @@ assert.match(handoffReminder('integrate', { ...base, me: 'Claude', ready: [{ id:
 assert.match(handoffReminder('integrate', { ...base, me: 'Claude', ready: [] }), /every task is done, call @yeebyor to assess/);
 for (const kind of ['submit', 'approve', 'reject', 'integrate']) assert.ok(!handoffReminder(kind, { ...base, team: 'Claude' }).includes(String.fromCharCode(0x2014)), 'no em dash');
 
-console.log(JSON.stringify({ status: 'PASS', checks: 'compact turn, wait --wake leaves messages unseen, delta reads, read --new, join record per session, hand-off reminders' }));
+console.log(JSON.stringify({ status: 'PASS', checks: 'compact turn, wait --wake leaves messages unseen, delta reads, read --new, send retries a passing server error with the same client_id, join record per session, hand-off reminders' }));

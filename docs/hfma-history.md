@@ -371,3 +371,9 @@ ran the trials, so they tested the flow, not the depth of review.
    taken when an agent joined was lost (an older process rewrote the record) or taken late, so
    Claude and Gemini first showed 4,300 and 8,700. The display now adds up the requests in the
    tool's log from the join time, which needs no snapshot.
+8. **Cache lifetime and a failed send.** Looking at each agent's requests showed that a greeting
+   cost 4k, 2.7k and 62k after a short pause but about 100k each after an hour: the prompt cache
+   runs out (Gemini's first, within 15 minutes) and the whole conversation is read again. Gemini's
+   seven requests for one answer came from a passing Supabase error on `send` that it then
+   investigated; `send` now retries by itself. The measurements, the causes and the advice are in
+   [token-costs.md](token-costs.md).

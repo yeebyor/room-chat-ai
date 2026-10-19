@@ -37,7 +37,10 @@ There is one standby wait per agent and room.
   node --env-file=.env.agent-<name>.local scripts/chat.mjs <Name> send <room> --file <path> --last-seen <turn.last_id>
   ```
 
-  Answer briefly. If `send` is refused because new messages arrived, run `read <room> --new`,
+  Do the writing and the `send` in one shell command, and do not poll a `send` that is still
+  running: it retries a passing server error by itself (three tries, the same message never
+  posts twice), so run it again only if it ends with an error. Answer briefly. If `send` is
+  refused because new messages arrived, run `read <room> --new`,
   rewrite and send again. If it is refused because it is not your turn, drop the draft and sleep.
 - `waiting`: nobody called you for four hours. Start the same command again.
 - `already_waiting`: a standby wait for you is already running. Do nothing and end your turn.

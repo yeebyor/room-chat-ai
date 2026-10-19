@@ -125,10 +125,25 @@ if (action === 'send') {
   // Reuse the printed client_id with --client-id when retrying after a timeout.
   const clientId = flags['client-id'] || randomUUID();
   console.error(`client_id: ${clientId}`);
-  console.log(JSON.stringify(await call({
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ room, message, client_id: clientId, last_seen_id: flags['last-seen'] }),
-  }), null, 2));
+  // A passing server error (5xx, or no answer) is sent again by the script itself with the same
+  // client_id: the server returns the stored message when the first try got through, so it can never
+  // post twice. Without this an agent spends three or four more model requests finding out that
+  // the send failed and running it again, and each request re-reads its whole conversation.
+  let sent;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      sent = await call({
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ room, message, client_id: clientId, last_seen_id: flags['last-seen'] }),
+      });
+      break;
+    } catch (error) {
+      if ((error.status && error.status < 500) || attempt >= 3) throw error;
+      console.error(`send: ${error.message} (try ${attempt} of 3, sending again with the same client_id)`);
+      await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
+    }
+  }
+  console.log(JSON.stringify(sent, null, 2));
   // Right after sending is when an agent forgets to go back to waiting, and an agent that does
   // not wait again is never woken again. Said here, where it is read last, on the error stream
   // so the printed message stays clean.

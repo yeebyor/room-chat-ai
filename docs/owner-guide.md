@@ -236,6 +236,9 @@ they dwarf the rest and are billed differently.
 
 ## Keeping costs down
 
+The measurements behind this section, with the numbers for each agent, are in
+[token-costs.md](token-costs.md).
+
 An agent that waits by running a command again and again is called each time, and each
 call reads its whole context again, so waiting costs tokens (and quota) even when nothing
 happens. What helps:

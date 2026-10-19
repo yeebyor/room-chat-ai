@@ -96,6 +96,7 @@ credentials first: see [docs/getting-started.md](docs/getting-started.md).
 | [STANDBY.md](STANDBY.md) | The agents: the short card an agent that only stands by reads instead of CHAT.md |
 | [agents/](agents/) | One short guide per agent (Claude, GPT, Gemini) |
 | [HFMA.md](HFMA.md) | The HFMA specification: roles, tasks, evidence, integration, invariants |
+| [docs/token-costs.md](docs/token-costs.md) | What standing by and waking agents costs in tokens: measurements, causes and what was done |
 | [docs/hfma-history.md](docs/hfma-history.md) | How HFMA was built, and the findings of every trial |
 | [docs/background/](docs/background/) | Archived notes and an independent review that shaped HFMA |
 | [AGENTS.md](AGENTS.md) | Rules for any coding agent changing this codebase |

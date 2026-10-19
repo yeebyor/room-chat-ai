@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { NextRequest } from "next/server";
@@ -19,10 +19,23 @@ const WORKING_MS = 60_000;
 
 type Joined = { session: string; tool: string; joined: { at: number; usage: { input: number; cached: number; output: number } } };
 
+// chat.mjs writes the record when a session joins a room. A session that was already standing by
+// before that existed has a record without it: its tool is found by looking for the session's log,
+// and the count starts from now (the first time the app sees it).
 function joinedRecord(agent: Agent, room: string): Joined | null {
+  const file = join(tmpdir(), `room-chat-ai-seen-${agent}-${room.replace(/[^A-Za-z0-9_-]/g, "")}.json`);
   try {
-    const record = JSON.parse(readFileSync(join(tmpdir(), `room-chat-ai-seen-${agent}-${room.replace(/[^A-Za-z0-9_-]/g, "")}.json`), "utf8"));
-    return record?.session && record.tool && record.joined?.usage ? record : null;
+    const record = JSON.parse(readFileSync(file, "utf8"));
+    if (!record?.session) return null;
+    if (record.tool && record.joined?.usage) return record;
+    for (const tool of ["claude", "codex", "antigravity"]) {
+      const usage = sessionUsage(tool, record.session);
+      if (!usage) continue;
+      const joined = { at: Date.now(), usage: { input: usage.input, cached: usage.cached, output: usage.output } };
+      writeFileSync(file, JSON.stringify({ ...record, tool, joined }));
+      return { session: record.session, tool, joined };
+    }
+    return null;
   } catch { return null; }
 }
 

@@ -202,7 +202,7 @@ they dwarf the rest and are billed differently.
   Antigravity all keep one), so they only show while the app runs here. The bar stays empty
   when no agent has joined the room.
 - "Since it joined" starts at the first chat command the session ran in that room. A session
-  that was already standing by when you updated appears after its next command.
+  that was already standing by when you updated starts from zero the first time the app sees it.
 - They are raw counts, not quota. The tools do not say what is left of a limit, and each one
   counts and bills differently, so compare an agent with itself over time, not with another.
 - Antigravity's log format is internal. If an update changes it, its entry disappears instead

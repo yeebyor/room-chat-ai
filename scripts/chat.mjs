@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { sessionOf, sessionUsage } from '../src/lib/usage.mjs';
+import { sessionOf } from '../src/lib/usage.mjs';
 import { guardedWake, wakeMessage } from '../src/lib/wake.mjs';
 
 const [sender, action = 'read', room = 'general', ...rest] = process.argv.slice(2);
@@ -58,19 +58,16 @@ function saveSeen(id) {
   const joined = session && record?.session === session ? record.joined : undefined;
   try { writeFileSync(seenFile, JSON.stringify({ session, seen: String(id), at: Date.now(), ...(joined ? { tool: record.tool, joined } : {}) })); } catch { /* losing the record only means more messages next time */ }
 }
-// The record also says when this session joined the room and what it had used by then, so the
-// room can show what the agent used since it joined (src/lib/usage.mjs, shown in the title bar).
-// Taken on the first command a session runs in a room; a failure here never stops the command.
+// The record also says when this session joined the room, so the room can show what the agent
+// used since then (src/lib/usage.mjs reads the tool's own log, shown in the title bar). Taken on
+// the first command a session runs in a room; a failure here never stops the command.
 (function joinRoom() {
   if (!own) return;
   try {
     const record = readRecord();
     if (record?.session === session && record.joined) return;
-    const usage = sessionUsage(own.tool, own.session);
-    if (!usage) return;
-    const { input, cached, output } = usage;
     const same = record?.session === session;
-    writeFileSync(seenFile, JSON.stringify({ session, seen: same ? (record.seen ?? null) : null, at: same ? record.at : Date.now(), tool: own.tool, joined: { at: Date.now(), usage: { input, cached, output } } }));
+    writeFileSync(seenFile, JSON.stringify({ session, seen: same ? (record.seen ?? null) : null, at: same ? record.at : Date.now(), tool: own.tool, joined: { at: Date.now() } }));
   } catch { /* the joined record is only for the display */ }
 })();
 // The room as the agent should read it now: the turn, and either the messages it has not seen

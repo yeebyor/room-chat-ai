@@ -203,6 +203,13 @@ they dwarf the rest and are billed differently.
   when no agent has joined the room.
 - "Since it joined" starts at the first chat command the session ran in that room. A session
   that was already standing by when you updated starts from zero the first time the app sees it.
+- **A wake after a long idle costs the whole conversation again.** Every request sends all of
+  it, and the tools keep it in a cache that expires. In the first test a one-line answer from an
+  agent that had been idle for over an hour came to 80,000 to 110,000 new tokens (Claude 109k,
+  GPT 91k, Gemini 81k). Nearly all of it was the first request re-reading a cold conversation of
+  70,000 to 105,000 tokens; the requests after it cost a few thousand each. So a long session
+  pays that price at every cold wake: start a fresh one when the number gets large, and do not
+  wake an agent just to say hello.
 - They are raw counts, not quota. The tools do not say what is left of a limit, and each one
   counts and bills differently, so compare an agent with itself over time, not with another.
 - Antigravity's log format is internal. If an update changes it, its entry disappears instead

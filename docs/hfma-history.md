@@ -364,3 +364,10 @@ ran the trials, so they tested the flow, not the depth of review.
    orchestrator about the planned rejection, so the author included the test from the start. One
    message named two agents with `@` and woke the wrong one first, so a call now carries one
    `@name`.
+7. **What a wake costs.** The token display showed that a one-line answer from an agent idle
+   for over an hour used 80,000 to 110,000 new tokens: the first request re-read the whole
+   conversation (70,000 to 105,000 tokens) with the prompt cache expired, and the requests after
+   it cost a few thousand each. Counting it right took a second try. A snapshot of the totals
+   taken when an agent joined was lost (an older process rewrote the record) or taken late, so
+   Claude and Gemini first showed 4,300 and 8,700. The display now adds up the requests in the
+   tool's log from the join time, which needs no snapshot.

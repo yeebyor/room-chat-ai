@@ -3,11 +3,13 @@
 // The server never calls a model, so the only place the numbers exist is each tool's session
 // log: Claude Code (~/.claude/projects/*/<session>.jsonl), Codex (~/.codex/sessions/**/rollout-*-
 // <thread>.jsonl) and Antigravity (~/.gemini/antigravity-cli/brain/<conversation>/...). Only the
-// token counts are read, never the text. In all three the figures mean the same:
+// token counts and their times are read, never the text. In all three the figures mean the same:
 //   input   = tokens the model read for the first time (including cache writes)
 //   cached  = tokens it read again from the prompt cache
 //   output  = tokens it wrote
-// A log is read once, then only what was appended since (a session log can be large).
+// Every model request becomes one event with its time, so "what the session used since T" is
+// a sum over the events from T on, with no snapshot to lose. A log is read once, then only what
+// was appended since (a session log can be large).
 import { closeSync, existsSync, openSync, readdirSync, readSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -78,7 +80,9 @@ function scan(file, state, onLine) {
 }
 
 const parse = (line) => { try { return JSON.parse(line); } catch { return null; } };
+const time = (value) => { const t = Date.parse(value); return Number.isNaN(t) ? 0 : t; };
 
+// Each tool turns its log into events: {t, input, cached, output} per model request.
 const TOOLS = {
   claude: {
     find: findClaude,
@@ -88,48 +92,49 @@ const TOOLS = {
       const o = parse(line);
       const usage = o?.message?.usage;
       const id = o?.message?.id;
-      if (usage && id) state.byId.set(id, [(usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0), usage.cache_read_input_tokens || 0, usage.output_tokens || 0]);
+      if (usage && id) {
+        state.byId.set(id, { t: time(o.timestamp), input: (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0), cached: usage.cache_read_input_tokens || 0, output: usage.output_tokens || 0 });
+      }
     },
-    total: (state) => {
-      const sum = { input: 0, cached: 0, output: 0 };
-      for (const [input, cached, output] of state.byId.values()) { sum.input += input; sum.cached += cached; sum.output += output; }
-      return sum;
-    },
+    events: (state) => [...state.byId.values()],
   },
   codex: {
     find: findCodex,
-    make: () => ({ offset: 0, last: null }),
-    // total_token_usage is cumulative and its input includes the cached part.
+    make: () => ({ offset: 0, events: [], previous: null }),
+    // total_token_usage is cumulative and its input includes the cached part, so a request is the
+    // difference from the total before it.
     onLine: (state, line) => {
       if (!line.includes('"token_count"')) return;
-      const total = parse(line)?.payload?.info?.total_token_usage;
-      if (total) state.last = total;
+      const o = parse(line);
+      const total = o?.payload?.info?.total_token_usage;
+      if (!total) return;
+      const before = state.previous && total.input_tokens >= state.previous.input_tokens ? state.previous : { input_tokens: 0, cached_input_tokens: 0, output_tokens: 0 };
+      state.previous = total;
+      const input = (total.input_tokens || 0) - (before.input_tokens || 0);
+      const cached = (total.cached_input_tokens || 0) - (before.cached_input_tokens || 0);
+      const output = (total.output_tokens || 0) - (before.output_tokens || 0);
+      if (input || output) state.events.push({ t: time(o.timestamp), input: Math.max(0, input - cached), cached: Math.max(0, cached), output: Math.max(0, output) });
     },
-    total: (state) => {
-      const t = state.last;
-      return t ? { input: Math.max(0, (t.input_tokens || 0) - (t.cached_input_tokens || 0)), cached: t.cached_input_tokens || 0, output: t.output_tokens || 0 } : { input: 0, cached: 0, output: 0 };
-    },
+    events: (state) => state.events,
   },
   antigravity: {
     find: findAntigravity,
-    make: () => ({ offset: 0, input: 0, cached: 0, output: 0 }),
+    make: () => ({ offset: 0, events: [] }),
     onLine: (state, line) => {
       if (!line.includes('_tokens')) return;
       const o = parse(line);
-      if (!o) return;
-      state.input += o.input_tokens || 0;
-      state.cached += o.cache_read_tokens || 0;
-      state.output += o.output_tokens || 0;
+      if (o && (o.input_tokens || o.output_tokens)) state.events.push({ t: time(o.created_at), input: o.input_tokens || 0, cached: o.cache_read_tokens || 0, output: o.output_tokens || 0 });
     },
-    total: (state) => ({ input: state.input, cached: state.cached, output: state.output }),
+    events: (state) => state.events,
   },
 };
 
 const cache = new Map();
 
-// {input, cached, output, at} for a session (at = when its log last changed), or null when the
-// log is not on this machine.
-export function sessionUsage(tool, session, home = homedir()) {
+// What a session used from `since` (milliseconds since the epoch, 0 for all of it) on:
+// {input, cached, output, at}, where at is when its log last changed. Null when the log is not on
+// this machine.
+export function sessionUsage(tool, session, since = 0, home = homedir()) {
   const spec = TOOLS[tool];
   if (!spec || !SESSION.test(session ?? '')) return null;
   const key = `${tool}:${session}:${home}`;
@@ -143,11 +148,10 @@ export function sessionUsage(tool, session, home = homedir()) {
   const stat = statSync(entry.file);
   if (stat.size < entry.state.offset) entry.state = spec.make();
   scan(entry.file, entry.state, (line) => spec.onLine(entry.state, line));
-  return { ...spec.total(entry.state), at: stat.mtimeMs };
-}
-
-// What a session used since a snapshot of it (never below zero).
-export function usageSince(now, base) {
-  const part = (key) => Math.max(0, (now?.[key] || 0) - (base?.[key] || 0));
-  return { input: part('input'), cached: part('cached'), output: part('output') };
+  const sum = { input: 0, cached: 0, output: 0 };
+  for (const event of spec.events(entry.state)) {
+    if (event.t < since) continue;
+    sum.input += event.input; sum.cached += event.cached; sum.output += event.output;
+  }
+  return { ...sum, at: stat.mtimeMs };
 }

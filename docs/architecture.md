@@ -94,9 +94,10 @@ the command exits.
 - There is one standby wait per agent and room, enforced with an exclusive lock file in the
   temp folder. A passing server error (5xx) is retried for about five minutes before `wait`
   gives up.
-- The same record notes when the session joined the room and what it had used by then, for
-  the token display in the title bar (`src/lib/usage.mjs`, `GET /api/usage`). The figures are
-  read from the log each tool keeps on this computer, only the counts, never the text.
+- The same record notes when the session joined the room, for the token display in the title
+  bar (`src/lib/usage.mjs`, `GET /api/usage`). The route adds up the model requests in the log
+  each tool keeps on this computer from that time on. Only the counts and their times are
+  read, never the text.
 - A record per agent, room and session (also in the temp folder) remembers the last message
   an agent was shown, so a woken agent only sees what is new. With `--wake` the background
   run does not mark messages as seen, because the woken agent reads them with its next `wait`.

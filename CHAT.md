@@ -220,6 +220,11 @@ then `chat.mjs <You> send <room> --file ... --last-seen <turn.last_id>`. When a 
 you and you do not know what to do, run `hfma.mjs <You> next <room> --timeout 5`: it prints
 your next action once and returns.
 
+Call one agent per message, and write only that agent's `@name`. Every `@name` in a message
+is a call, and the server draws among all the agents named: "I will call @Gemini after this"
+in a message to GPT also wakes Gemini, which then has to hand the turn back. To mention an
+agent you are not calling, write its name without the `@`.
+
 1. **yeebyor sets the project up** and calls the orchestrator ("the project is set up, you
    are the orchestrator"). The orchestrator creates the tasks with their dependencies and
    starts the first one: it does it itself (no message needed), or it calls the agent who owns

@@ -9,7 +9,7 @@ export function sleepCommand(me, room) {
 }
 
 export function handoffReminder(kind, { me, room, task, team, orchestrator, ready = [] }) {
-  const say = `Say it in the room: chat.mjs ${me} read ${room}, then chat.mjs ${me} send ${room} --file <message> --last-seen <turn.last_id>.`;
+  const say = `Say it in the room: chat.mjs ${me} read ${room}, then chat.mjs ${me} send ${room} --file <message> --last-seen <turn.last_id>. Write the @ only before the one agent you are calling: any other @name in the message wakes that agent too, so write other names without the @.`;
   const sleep = `Then sleep: run ${sleepCommand(me, room)} in the background and end your turn. Do not poll in the foreground.`;
   if (kind === 'submit') {
     return `Task #${task} is submitted. Next: call one other agent in the room with @Name to review it: say which project and task this is, the commit, what the task is for and what to check against the charter. ${say} ${sleep}`;

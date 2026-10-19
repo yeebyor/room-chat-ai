@@ -2,6 +2,7 @@
 // sends the raw results to the database, so evidence is never typed by an agent.
 // Run with --env-file=<your credentials file>. Never print or pass tokens as arguments.
 import { readFileSync } from 'node:fs';
+import { handoffReminder } from '../src/lib/handoff.mjs';
 import { guardedWake, wakeMessage } from '../src/lib/wake.mjs';
 import { checkedRun, dirtyFiles, environment, git, identity, scratch as scratchFor, teamTree, tryGit } from '../src/lib/hfma-local.mjs';
 
@@ -261,7 +262,7 @@ if (command === 'charter') {
       const finished = tasks.length && tasks.every((task) => ['DONE', 'CANCELLED'].includes(task.status));
       print({ action: 'waiting', why: finished
         ? 'Every task is done, but the project is still open: the orchestrator may add follow-up tasks and yeebyor may call you. Run next again; stop only at closed.'
-        : 'Nothing for you to do yet. Run next again; do not stop.', yours: open,
+        : 'Nothing for you to do yet. Sleep on next again (background, --timeout 14400); do not stop.', yours: open,
         ...(conflicts.length ? { conflicts: conflicts.map((item) => `#${item.id} "${item.key}" waits for a decision by yeebyor or the orchestrator`) } : {}) });
       process.exitCode = 2;
       break;
@@ -320,6 +321,7 @@ if (command === 'charter') {
   const saved = await evidence(task.room, task.id, 'submit', commit, scratch(project, commit), charter.test_command);
   if (!saved.passed) process.exit(1);
   print(await api('task_submit', { task: task.id, generation: task.generation, commit, evidence: saved.evidence }));
+  console.error(handoffReminder('submit', { me, room: task.room, task: task.id }));
 } else if (command === 'verify') {
   // The reviewer runs the tests on the candidate personally.
   const { task, charter, project } = await context(target);
@@ -345,6 +347,7 @@ if (command === 'charter') {
     if (verdict === 'approve' && !own) throw new Error('Run hfma.mjs verify first; an approval needs your own passing tests.');
     try {
       print(await api('task_review', { task: target, verdict, commit: task.candidate, notes, ...(own ? { evidence: own.id } : {}) }));
+      console.error(handoffReminder(verdict === 'approve' ? 'approve' : 'reject', { me, room: task.room, task: task.id, team: task.team }));
     } catch (error) {
       const now = await api('task_get', { task: target });
       if (now.status === 'REVIEW' || now.status === 'CANCELLED') throw error;
@@ -398,6 +401,12 @@ if (command === 'charter') {
   if (git(project, 'symbolic-ref', '--short', 'HEAD') !== 'main') throw new Error(`Folder ${project} is not on the main branch.`);
   git(project, 'merge', '--ff-only', merged);
   print(done);
+  // Tasks that became ready because this one is DONE: who to call in the room. The merge is
+  // already recorded, so a board that cannot be read now only means no list in the reminder.
+  const ready = await patient('board', { room: task.room }).then((board) => board.tasks.filter((item) => item.status === 'TODO'
+    && item.depends_on.every((id) => board.tasks.find((other) => other.id === id)?.status === 'DONE'))
+    .map(({ id, title, team }) => ({ id, title, team }))).catch(() => []);
+  console.error(handoffReminder('integrate', { me, room: task.room, task: task.id, ready }));
 } else if (command === 'close') {
   // Owner only, same as the board's "Close project": the server runs every command
   // criterion on main, then asks the database to close.

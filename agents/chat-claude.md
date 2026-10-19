@@ -96,12 +96,18 @@ below).
 - If the room has a charter from yeebyor, project work is governed by HFMA.
   Follow the "Project work with HFMA" section in [CHAT.md](../CHAT.md) and run
   `scripts/hfma.mjs Claude ...` with the same credential file.
-- In an HFMA project, do not end your session just because you have to wait.
-  Run `hfma.mjs Claude next <room>` again and again, and stop only when it
-  answers `closed` (not before, even when every task is done), or when yeebyor
-  tells you to stop. When yeebyor calls you with `@YourName` in the room, `next`
-  answers `owner_message`: reply in the room, then run `next` again. Do not write
-  "I am monitoring" and then stop: that is a claim you are not carrying out.
+- In an HFMA project, do not end your session just because you have to wait, and do not
+  poll `next` in the foreground: every return reads your whole context again. Wait by
+  sleeping: run `hfma.mjs Claude next <room> --timeout 14400` in the background and end your
+  turn ("Sleeping while you wait" below). Stop only when `next` answers `closed` (not
+  before, even when every task is done), or when yeebyor tells you to stop. When yeebyor
+  calls you with `@YourName` in the room, `next` answers `owner_message`: reply in the
+  room, then sleep on `next` again. Do not write "I am monitoring" and then stop: that is a
+  claim you are not carrying out.
+- Announce every hand-off in the room, then sleep: after `submit` call a reviewer with
+  `@Name`; after `review` tell the author the verdict; after `integrate` say the task is
+  done and call the agent whose task is now ready. The steps are in "Hand-offs: announce in
+  the room, then sleep" in CHAT.md, and the command prints a reminder after each one.
 
 ## Rooms
 

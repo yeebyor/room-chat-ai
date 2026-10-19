@@ -191,18 +191,47 @@ keeping your claims alive, then prints one `action`:
 | `review` | Another team's task is waiting: `verify <id>`, check it, then `review <id>`. If `previous_feedback` is listed, check every item was addressed |
 | `work` | You hold this task: continue, commit, then `submit <id>`. If `feedback` is listed, address every item first |
 | `claim` | Your task is ready: `claim <id>` |
-| `waiting` (exit 2) | Nothing to do yet. **Run `next` again.** This does not mean you are done |
+| `waiting` (exit 2) | Nothing to do yet. **Sleep on `next` again** (background, `--timeout 14400`). This does not mean you are done |
 | `follow_up` | (Orchestrator) A reviewer added findings after a task was approved: create a follow-up task for them, or answer with `note <task>` saying why no change is needed |
 | `all_done` | (Orchestrator) Every task is done: call `@yeebyor` to assess |
 | `closed` (exit 3) | yeebyor closed the project: stop |
 
 You **may only stop** when `next` answers `closed`, or yeebyor tells you to stop.
-Keep running `next` after your own tasks are finished, and even when every task is
+Keep using `next` after your own tasks are finished, and even when every task is
 DONE: another team's task may need you as a reviewer, the orchestrator may still
 create a follow-up task for you, and yeebyor may call you in the room. To wait for
 one specific task, use `wait <id> --until DONE`. If `integrate` says main moved
 while you integrated (another team integrated at the same moment), run
 `integrate` again: the task stays `APPROVED`.
+
+### Hand-offs: announce in the room, then sleep
+
+`next` is how you wait, and you wait by sleeping: run it in the background with
+`--timeout 14400` (GPT adds `--wake codex`) and end your turn, as in "Sleeping while you
+wait". Never run it in the foreground in a loop: every return reads your whole context again
+and costs quota for nothing. And whenever you hand something to another agent, say so in the
+room first, then sleep. yeebyor follows the project in the room, and nobody else knows what
+you just did. To say it: `chat.mjs <You> read <room>`, then `send --file ... --last-seen
+<turn.last_id>`, then `leave`, the same steps as for an `owner_message`.
+
+1. **You submitted a task.** Pick one other agent as reviewer and call it with `@Name`: the
+   project, the task (id and title), the commit, what the task is for, and what to check
+   against the charter. Then sleep.
+2. **You were woken with `review`.** `verify`, read the changes, `review approve|reject`.
+   Then tell the author with `@Author`: approved, or rejected with the findings in a few
+   sentences. Then sleep.
+3. **Your task was rejected** (you wake with `work` and `feedback`). Fix it, commit, `submit`
+   again, call the reviewer again and say what you changed. Then sleep.
+4. **Your task was approved** (you wake with `integrate`). Run `integrate <id>`: the task is
+   DONE. Then say in the room that it is done and call the agent whose next task is now
+   ready (`integrate` prints which). If every task is done and you are the orchestrator, call
+   `@yeebyor`. Then sleep.
+5. **The agent you called** wakes by itself with `claim` or `review`, because `next` sees the
+   task change. The message is not what wakes it: agents sleeping in `next` do not read the
+   room, only a call from yeebyor reaches them (`owner_message`). The message is for yeebyor,
+   and for an agent that is only listening.
+
+`submit`, `review` and `integrate` print a reminder of the next step when they finish.
 
 ```powershell
 node --env-file=.env.agent-claude.local scripts/hfma.mjs Claude charter Project-1

@@ -119,7 +119,7 @@ vague features are hard to judge at the end.
 Send to the orchestrator first, then to the others, with the agent's own name:
 
 ```
-Start working in the Task-1 room. Follow the "Project work with HFMA" section in CHAT.md: run hfma.mjs Claude next Task-1 repeatedly and stop only when it answers closed.
+Start working in the Task-1 room. Follow the "Project work with HFMA" section in CHAT.md: run hfma.mjs Claude next Task-1 as CHAT.md says (sleeping in the background between actions) and stop only when it answers closed.
 ```
 
 ### Letting the agents choose the project
@@ -139,7 +139,7 @@ When you agree, one of you posts the final proposal in the room and calls @yeeby
 
 Then keep running wait. Phase 2 starts only when yeebyor writes in the room that the project is set up.
 
-Phase 2, execution. Run leave, then follow the "Project work with HFMA" section in CHAT.md: run hfma.mjs with your own name and next Random-Task, repeatedly, and stop only when it answers closed.
+Phase 2, execution. Run leave, then follow the "Project work with HFMA" section in CHAT.md: run hfma.mjs with your own name and next Random-Task as CHAT.md says (sleeping in the background between actions), and stop only when it answers closed.
 ```
 
 Copy their proposal into the setup form, then write in the room:

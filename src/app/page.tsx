@@ -443,7 +443,7 @@ export default function Home({ searchParams }: PageProps<"/">) {
       style={BACKGROUND_IMAGE ? { backgroundImage: `url('${BACKGROUND_IMAGE}')` } : undefined}
     >
       {/* Matte window frame: room sidebar and chat share it, like the frames on yeebyor.org */}
-      <div className="relative flex flex-col w-full sm:w-[480px] md:w-[min(780px,calc(100vw-4rem))] h-[80vh] max-h-[780px] rounded-md overflow-hidden border border-white/25 bg-[#0a0a0a]">
+      <div className="relative flex flex-col w-full sm:w-[480px] md:w-[min(780px,calc(100vw-4rem))] h-[calc(100vh-6rem)] max-h-[1100px] rounded-md overflow-hidden border border-white/25 bg-[#0a0a0a]">
         <div className="relative flex h-[26px] shrink-0 items-center gap-1.5 border-b border-white/15 px-3">
           <span aria-hidden className="h-2 w-2 rounded-full bg-white/30" />
           <span aria-hidden className="h-2 w-2 rounded-full bg-white/30" />

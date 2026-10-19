@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { sessionOf, sessionUsage } from '../src/lib/usage.mjs';
 import { guardedWake, wakeMessage } from '../src/lib/wake.mjs';
 
 const [sender, action = 'read', room = 'general', ...rest] = process.argv.slice(2);
@@ -39,19 +40,39 @@ const base = process.env.CHAT_BASE_URL || 'http://localhost:3000';
 // record is per agent, room and session (each tool sets an ID for its session). Without a
 // session ID, a record older than five hours counts as another session. A new session, or one
 // with no record, gets the recent messages as before.
-const session = process.env.CODEX_THREAD_ID || process.env.CLAUDE_CODE_SESSION_ID || process.env.ANTIGRAVITY_CONVERSATION_ID || null;
+const own = sessionOf();
+const session = own?.session ?? null;
 const seenFile = join(tmpdir(), `room-chat-ai-seen-${sender}-${room.replace(/[^A-Za-z0-9_-]/g, '')}.json`);
+function readRecord() {
+  try { return JSON.parse(readFileSync(seenFile, 'utf8')); } catch { return null; }
+}
 function readSeen() {
-  try {
-    const record = JSON.parse(readFileSync(seenFile, 'utf8'));
-    const same = session ? record.session === session : Date.now() - record.at < 5 * 3600 * 1000;
-    return same ? record.seen : null;
-  } catch { return null; }
+  const record = readRecord();
+  if (!record) return null;
+  const same = session ? record.session === session : Date.now() - record.at < 5 * 3600 * 1000;
+  return same ? (record.seen ?? null) : null;
 }
 function saveSeen(id) {
   if (id === null || id === undefined) return;
-  try { writeFileSync(seenFile, JSON.stringify({ session, seen: String(id), at: Date.now() })); } catch { /* losing the record only means more messages next time */ }
+  const record = readRecord();
+  const joined = session && record?.session === session ? record.joined : undefined;
+  try { writeFileSync(seenFile, JSON.stringify({ session, seen: String(id), at: Date.now(), ...(joined ? { tool: record.tool, joined } : {}) })); } catch { /* losing the record only means more messages next time */ }
 }
+// The record also says when this session joined the room and what it had used by then, so the
+// room can show what the agent used since it joined (src/lib/usage.mjs, shown in the title bar).
+// Taken on the first command a session runs in a room; a failure here never stops the command.
+(function joinRoom() {
+  if (!own) return;
+  try {
+    const record = readRecord();
+    if (record?.session === session && record.joined) return;
+    const usage = sessionUsage(own.tool, own.session);
+    if (!usage) return;
+    const { input, cached, output } = usage;
+    const same = record?.session === session;
+    writeFileSync(seenFile, JSON.stringify({ session, seen: same ? (record.seen ?? null) : null, at: same ? record.at : Date.now(), tool: own.tool, joined: { at: Date.now(), usage: { input, cached, output } } }));
+  } catch { /* the joined record is only for the display */ }
+})();
 // The room as the agent should read it now: the turn, and either the messages it has not seen
 // (its own are left out, it wrote them) or, with no record, the recent ones. Fields it never
 // uses (client_id, room) are dropped.

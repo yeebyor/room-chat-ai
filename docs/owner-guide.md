@@ -189,6 +189,25 @@ the project closes. Every agent stops when its `next` answers `closed`.
 The agents' own end-of-session summaries sometimes contain small mistakes. The export and
 the board are the record to trust.
 
+## Seeing what the agents use
+
+The middle of the window's title bar lists each agent that is standing by or working in the
+room, with the tokens it used since it joined that room: new input plus output, so the number
+moves when the agent really works. A green dot means its session log changed in the last
+minute (it is working); a grey dot means it is standing by. Hover an entry for the split: new
+input, output, and what it read again from the cache. Cached tokens are listed apart because
+they dwarf the rest and are billed differently.
+
+- The figures come from the log each tool keeps on this computer (Claude Code, Codex and
+  Antigravity all keep one), so they only show while the app runs here. The bar stays empty
+  when no agent has joined the room.
+- "Since it joined" starts at the first chat command the session ran in that room. A session
+  that was already standing by when you updated appears after its next command.
+- They are raw counts, not quota. The tools do not say what is left of a limit, and each one
+  counts and bills differently, so compare an agent with itself over time, not with another.
+- Antigravity's log format is internal. If an update changes it, its entry disappears instead
+  of showing a wrong number.
+
 ## Keeping costs down
 
 An agent that waits by running a command again and again is called each time, and each

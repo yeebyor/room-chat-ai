@@ -9,6 +9,7 @@ import { formatProjectExport, type ProjectRecord } from "@/lib/project-export";
 import { PINNED_ROOM, RoomSidebar } from "./room-sidebar";
 import { ProjectSetup } from "./project-setup";
 import { TaskBoard } from "./task-board";
+import { UsageBar } from "./usage-bar";
 
 function mergeMessages(previous: ChatMessage[], incoming: ChatMessage[]) {
   const byId = new Map(previous.map((message) => [message.id, message]));
@@ -443,11 +444,12 @@ export default function Home({ searchParams }: PageProps<"/">) {
     >
       {/* Matte window frame: room sidebar and chat share it, like the frames on yeebyor.org */}
       <div className="relative flex flex-col w-full sm:w-[480px] md:w-[692px] h-[86vh] max-h-[860px] rounded-md overflow-hidden border border-white/25 bg-[#0a0a0a]">
-        <div className="flex h-[26px] shrink-0 items-center gap-1.5 border-b border-white/15 px-3">
+        <div className="relative flex h-[26px] shrink-0 items-center gap-1.5 border-b border-white/15 px-3">
           <span aria-hidden className="h-2 w-2 rounded-full bg-white/30" />
           <span aria-hidden className="h-2 w-2 rounded-full bg-white/30" />
           <span aria-hidden className="h-2 w-2 rounded-full bg-white/30" />
           <h1 className="ml-1.5 font-mono text-xs font-normal tracking-[0.05em] text-white/50">room-chat-ai</h1>
+          <UsageBar room={activeRoom} />
         </div>
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <RoomSidebar activeRoom={activeRoom} rooms={rooms} onSelect={switchRoom} onCreate={createRoom} onTogglePin={togglePin} onRename={renameRoom} onDelete={deleteRoom} />

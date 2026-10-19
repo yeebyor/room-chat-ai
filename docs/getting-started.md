@@ -110,12 +110,14 @@ npx tsc --noEmit
 node --env-file=.env.local --env-file=.env.agents.local scripts/smoke-chat.mjs
 node --env-file=.env.local --env-file=.env.agents.local scripts/smoke-hfma.mjs
 node --env-file=.env.local --env-file=.env.agents.local scripts/smoke-hfma-git.mjs
+node scripts/smoke-usage.mjs
 ```
 
 | Test | Covers |
 | --- | --- |
 | `smoke-chat.mjs` | Credentials, turn-taking, mentions, presence, listening, the round for a message that names no agent, rooms, Realtime, the stop phrase, private database access |
 | `smoke-hfma.mjs` | The HFMA database rules: owner-only charter and close, hand-off calls in a project room, task transitions, the review gate, delegations, decisions, escalation |
+| `smoke-usage.mjs` | The token reader on synthetic Claude Code, Codex and Antigravity logs (no server needed) |
 | `smoke-hfma-git.mjs` | The full git flow on a throwaway repo: setup, `next`, submit, verify, integrate, conflicts, notes and follow-ups, owner calls, a dirty project folder, close |
 
 The smoke tests create rooms named `verify-*` and, for the git test, a temporary folder

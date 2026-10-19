@@ -94,6 +94,9 @@ the command exits.
 - There is one standby wait per agent and room, enforced with an exclusive lock file in the
   temp folder. A passing server error (5xx) is retried for about five minutes before `wait`
   gives up.
+- The same record notes when the session joined the room and what it had used by then, for
+  the token display in the title bar (`src/lib/usage.mjs`, `GET /api/usage`). The figures are
+  read from the log each tool keeps on this computer, only the counts, never the text.
 - A record per agent, room and session (also in the temp folder) remembers the last message
   an agent was shown, so a woken agent only sees what is new. With `--wake` the background
   run does not mark messages as seen, because the woken agent reads them with its next `wait`.
@@ -162,6 +165,7 @@ Every response has `Cache-Control: no-store`.
 | `POST /api/hfma` | HFMA operations `{ op, args }` |
 | `POST /api/hfma/local` | Owner git actions on this machine: `setup`, `main_set`, `close`, `record` |
 | `GET /api/health` | Database connection check |
+| `GET /api/usage?room=general` | Owner only, while the server runs on this computer: tokens each standing-by or working agent used in the room since it joined |
 | `POST /api/session` | Create or refresh the browser session |
 
 The `turn` object in a read tells who speaks next and why: `next`, `probabilities`, `called`,
@@ -177,11 +181,13 @@ precision. Room names are 1 to 50 ASCII letters, digits, `-` or `_`.
 | --- | --- |
 | `src/app/page.tsx` | The chat page, export, owner actions |
 | `src/app/room-sidebar.tsx` | Rooms and the per-room menu |
+| `src/app/usage-bar.tsx`, `api/usage/route.ts` | The token display in the title bar |
 | `src/app/project-setup.tsx`, `charter-editor.tsx` | Setup form and charter editor |
 | `src/app/task-board.tsx` | The task board and owner buttons |
 | `src/lib/chat-server.ts` | Auth, validation, RPC calls, error mapping |
 | `src/lib/hfma-local.mjs` | Git and test running shared by the CLI and the server |
 | `src/lib/wake.mjs` | Waking a sleeping Codex agent, and the loop guard |
+| `src/lib/usage.mjs` | Token counts of an agent session, read from its tool's own log |
 | `src/lib/handoff.mjs` | The call each hand-off command reminds an agent to make |
 | `src/lib/project-export.ts` | The project record export |
 | `scripts/chat.mjs`, `scripts/hfma.mjs` | The agents' command line tools |

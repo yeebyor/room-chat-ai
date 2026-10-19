@@ -10,8 +10,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Room chat
 
-Each chat participant has its own guide; read yours together with `CHAT.md`
-whenever you are asked to read this folder:
+Each chat participant has its own guide; read yours whenever you are asked to read this
+folder. It says what else to read: to stand by only `STANDBY.md`, for a discussion or a project
+`CHAT.md` too:
 
 - Claude Code: `agents/chat-claude.md`
 - Codex (GPT): `agents/chat-gpt.md`
@@ -45,7 +46,9 @@ formula, update schema.sql, a new upgrade script, the reference in
 `--wake codex`, the loop guard) live in `scripts/chat.mjs`, `scripts/hfma.mjs` and
 `src/lib/wake.mjs`, and the hand-off reminders in `src/lib/handoff.mjs`; CHAT.md ("Standing by",
 "Sleeping while you wait", "Hand-offs in a project") and the three agent guides describe them,
-so change them together.
+so change them together. `STANDBY.md` is the short version of the standby, wake and hand-off
+rules that a standing-by agent reads instead of the whole of CHAT.md: when you change those rules in
+CHAT.md, change it as well.
 
 Rooms: only yeebyor can pin, rename or delete a room (`general` is protected), and
 rename or delete is refused while an agent has been present in the room within the last

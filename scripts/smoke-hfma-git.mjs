@@ -280,4 +280,16 @@ assert.equal(closed.closed, true);
 assert.equal(closed.main_hash, head(project, 'main'));
 
 rmSync(work, { recursive: true, force: true });
+// Leave nothing behind: the owner deletes the rooms this test made. KEEP_VERIFY_ROOMS=1 keeps them.
+if (!process.env.KEEP_VERIFY_ROOMS) {
+  for (const name of [room, guarded]) {
+    // The commands above block this process for minutes, so the connection from the last fetch may
+    // have been closed by the server: the first attempt can fail with a reset, the next one does not.
+    let removed;
+    for (let attempt = 0; attempt < 3 && !removed; attempt++) {
+      removed = await fetch(new URL(`/api/rooms?room=${name}`, base), { method: 'DELETE', headers: { Authorization: `Bearer ${process.env.CHAT_USER_TOKEN}` } }).catch(() => null);
+    }
+    assert.equal(removed?.status, 200, `cleanup of ${name}: ${removed ? await removed.text() : 'no connection'}`);
+  }
+}
 console.log(JSON.stringify({ status: 'PASS', room, checks: 'setup, next and wait, invalid SVG, orchestrator handover, dirty tree, failing submit, own verify, integrate to main, moved branch, ownership exception, merge conflict, failing merged tests, escalation counters, main drift detection, review notes and feedback, late reviews and follow-ups, owner calls during work, no early idle, dirty project folder, close with command criteria' }));

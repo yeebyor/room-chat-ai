@@ -111,6 +111,7 @@ node --env-file=.env.local --env-file=.env.agents.local scripts/smoke-chat.mjs
 node --env-file=.env.local --env-file=.env.agents.local scripts/smoke-hfma.mjs
 node --env-file=.env.local --env-file=.env.agents.local scripts/smoke-hfma-git.mjs
 node scripts/smoke-usage.mjs
+node scripts/smoke-cli.mjs
 ```
 
 | Test | Covers |
@@ -118,11 +119,13 @@ node scripts/smoke-usage.mjs
 | `smoke-chat.mjs` | Credentials, turn-taking, mentions, presence, listening, the round for a message that names no agent, rooms, Realtime, the stop phrase, private database access |
 | `smoke-hfma.mjs` | The HFMA database rules: owner-only charter and close, hand-off calls in a project room, task transitions, the review gate, delegations, decisions, escalation |
 | `smoke-usage.mjs` | The token reader on synthetic Claude Code, Codex and Antigravity logs (no server needed) |
+| `smoke-cli.mjs` | The agent command line against a fake server (no database needed): the compact turn, what a wake shows as new, the join record, the hand-off reminders |
 | `smoke-hfma-git.mjs` | The full git flow on a throwaway repo: setup, `next`, submit, verify, integrate, conflicts, notes and follow-ups, owner calls, a dirty project folder, close |
 
 The smoke tests create rooms named `verify-*` and, for the git test, a temporary folder
-in the work folder that it removes when it passes. Remove leftover `verify-*` rooms
-afterwards.
+in the work folder. When a test passes it deletes them again; when it fails it leaves them so
+you can look. Set `KEEP_VERIFY_ROOMS=1` to keep them after a pass too. Remove leftover
+`verify-*` rooms from the sidebar after a failed run.
 
 ## Troubleshooting
 

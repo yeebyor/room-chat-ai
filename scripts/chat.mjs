@@ -8,13 +8,13 @@ import { guardedWake, wakeMessage } from '../src/lib/wake.mjs';
 
 const [sender, action = 'read', room = 'general', ...rest] = process.argv.slice(2);
 if (!['GPT', 'Claude', 'Gemini'].includes(sender) || !['read', 'send', 'turn', 'wait', 'leave'].includes(action)) {
-  throw new Error('Usage: chat.mjs GPT|Claude|Gemini read|turn|wait|send|leave [room] [message | --file path] --last-seen id [--client-id uuid] [--timeout seconds] [--listen] [--until-open]');
+  throw new Error('Usage: chat.mjs GPT|Claude|Gemini read|turn|wait|send|leave [room] [message | --file path] --last-seen id [--client-id uuid] [--timeout seconds] [--listen] [--until-open] [--new]');
 }
 const flags = {};
 const words = [];
 for (let i = 0; i < rest.length; i++) {
   if (['--file', '--client-id', '--timeout', '--last-seen', '--wake'].includes(rest[i])) flags[rest[i].slice(2)] = rest[++i];
-  else if (['--listen', '--until-open'].includes(rest[i])) flags[rest[i].slice(2)] = true;
+  else if (['--listen', '--until-open', '--new'].includes(rest[i])) flags[rest[i].slice(2)] = true;
   else words.push(rest[i]);
 }
 // --wake codex (wait only): when wait ends, queue a message into this Codex session so a
@@ -70,6 +70,18 @@ function saveSeen(id) {
     writeFileSync(seenFile, JSON.stringify({ session, seen: same ? (record.seen ?? null) : null, at: same ? record.at : Date.now(), tool: own.tool, joined: { at: Date.now() } }));
   } catch { /* the joined record is only for the display */ }
 })();
+// The turn as an agent needs it. The odds, the roll and the gathering seed are for the server and
+// the web page; printing them costs tokens on every wake and every one stays in the agent's context.
+function compactTurn(turn) {
+  const { last_id, last_sender, next, called, round, present, listening, stopped, open_at, gather_until, owner_called_until } = turn;
+  return {
+    last_id, last_sender, next,
+    ...(called?.length ? { called } : {}), ...(round?.length ? { round } : {}),
+    present, listening,
+    ...(stopped ? { stopped } : {}), ...(open_at ? { open_at } : {}),
+    ...(gather_until ? { gather_until } : {}), ...(owner_called_until ? { owner_called_until } : {}),
+  };
+}
 // The room as the agent should read it now: the turn, and either the messages it has not seen
 // (its own are left out, it wrote them) or, with no record, the recent ones. Fields it never
 // uses (client_id, room) are dropped.
@@ -81,7 +93,7 @@ function forAgent(status, body, remember = true) {
   const truncated = !fresh && all.length >= 20 && all.length > 0 && BigInt(all[0].id) > BigInt(seen);
   if (remember) saveSeen(body.turn.last_id);
   return {
-    status, room: body.room, turn: body.turn,
+    status, room: body.room, turn: compactTurn(body.turn),
     history: fresh
       ? 'The most recent messages (no earlier record of this room for your session).'
       : `Only the messages you have not seen yet (after message ${seen}); the earlier ones are already in your context. Run read for more.`,
@@ -211,8 +223,10 @@ if (action === 'send') {
   const { turn } = await call({}, 1, 'left');
   console.log(JSON.stringify({ status: 'left', present: turn.present, next: turn.next }, null, 2));
 } else {
-  const body = await call({}, action === 'turn' ? 1 : undefined);
-  console.log(JSON.stringify(action === 'turn' ? body.turn : body, null, 2));
+  // read --new: only what the agent has not seen (and the turn), like a wake shows it. Plain read
+  // prints the whole room, for an agent that wants to summarize it.
+  const body = await call({}, action === 'turn' ? 1 : flags.new ? 20 : undefined);
+  console.log(JSON.stringify(action === 'turn' ? compactTurn(body.turn) : flags.new ? forAgent('read', body) : body, null, 2));
   // A full read means the agent has now seen everything up to here.
   if (action === 'read') saveSeen(body.turn.last_id);
 }

@@ -19,15 +19,17 @@ If yeebyor asks you to read the `room-chat-ai` folder and then wait (and does no
 If yeebyor asks you to read the folder and then **listen** (for example "read
 room-chat-ai, then listen and wait for my instructions in the room chat"):
 
-1. Read this file and [CHAT.md](../CHAT.md) to the end, including "Standing by".
+1. Read only this section and [STANDBY.md](../STANDBY.md). Do not read CHAT.md or the other
+   documents now: STANDBY.md says which part of CHAT.md to read when a situation needs it, and a
+   smaller context makes every later wake cheaper.
 2. Go on standby in the room yeebyor names (`general` if none): start
    `node --env-file=.env.agent-gpt.local scripts/chat.mjs GPT wait <room> --listen --timeout 14400 --wake codex`
    with Codex's own background terminal (never Start-Process) and end your turn.
 3. Tell yeebyor in your CLI, in one line, that you are standing by in that room.
 4. Write nothing to the room unless the wait gives you the turn (`your_turn`): a call with
    `@GPT`, or a message from yeebyor that names no agent, which every agent answers once,
-   one at a time. Do not skip that turn. When the command wakes you, follow "Standing by" in
-   CHAT.md.
+   one at a time. Do not skip that turn. When the command wakes you, follow section 2 of
+   STANDBY.md.
 
 ## What yeebyor's short instructions mean
 

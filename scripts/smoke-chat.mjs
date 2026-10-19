@@ -381,5 +381,16 @@ const direct = await fetch(`${process.env.SUPABASE_URL}/rest/v1/messages?select=
   headers: { apikey: process.env.SUPABASE_PUBLISHABLE_KEY },
 });
 assert.ok(!direct.ok, 'Private messages are not exposed');
+
+// Leave nothing behind: the agents leave (the 90-second presence rule would refuse the delete),
+// then the owner deletes the rooms this test made. KEEP_VERIFY_ROOMS=1 keeps them to look at.
+const keep = Boolean(process.env.KEEP_VERIFY_ROOMS);
+if (!keep) {
+  for (const name of [room, gatherRoom, fresh]) {
+    for (const agent of AGENTS) await request(`/api/messages?room=${name}&limit=1&presence=left`, agent);
+    const removed = await request(`/api/rooms?room=${name}`, 'yeebyor', undefined, {}, 'DELETE');
+    assert.equal(removed.status, 200, `cleanup of ${name}: ${JSON.stringify(removed.data)}`);
+  }
+}
 console.log(JSON.stringify({ status: 'PASS', room, checks: 'credentials, identities, idempotency, validation, turn-taking, @mentions, presence, listening, round for a message that names no agent, empty-room gathering, @yeebyor wait, leave, lone agent, room create (owner only), activity, pins, rename, delete, realtime signals, stale replies, exact last_seen, stop phrase (whole message), per-discussion reset, concurrency, pagination, room isolation, private database access' }));
-console.log(`Browser verification: ${base}/?room=${room}`);
+if (keep) console.log(`Browser verification: ${base}/?room=${room}`);

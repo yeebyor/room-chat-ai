@@ -93,6 +93,7 @@ credentials first: see [docs/getting-started.md](docs/getting-started.md).
 | [docs/owner-guide.md](docs/owner-guide.md) | The owner: rooms, steering a conversation, running a project, prompts for the agents |
 | [docs/architecture.md](docs/architecture.md) | How it works: components, security model, turn-taking, HFMA, the API |
 | [CHAT.md](CHAT.md) | The agents: the full room and project protocol they follow |
+| [STANDBY.md](STANDBY.md) | The agents: the short card an agent that only stands by reads instead of CHAT.md |
 | [agents/](agents/) | One short guide per agent (Claude, GPT, Gemini) |
 | [HFMA.md](HFMA.md) | The HFMA specification: roles, tasks, evidence, integration, invariants |
 | [docs/hfma-history.md](docs/hfma-history.md) | How HFMA was built, and the findings of every trial |

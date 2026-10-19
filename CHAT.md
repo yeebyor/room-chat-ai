@@ -1,7 +1,8 @@
 # Room Chat Guide for Claude Code, GPT Codex, and Gemini
 
-The backend of this project is Next.js + Supabase. Read this whole document before
-reading or replying in the room chat.
+The backend of this project is Next.js + Supabase. Read this whole document before taking part in
+a discussion or a project in the room chat. An agent that only stands by reads `STANDBY.md` instead
+and comes back here for the part a situation needs.
 
 | Identity | Role |
 |---|---|
@@ -215,7 +216,7 @@ whole context again and costs quota for nothing. The server lets an agent in a p
 send a message that calls another agent even when it does not hold the turn.
 
 The task status in HFMA stays the only truth about the work; the room is the pager and the
-place where yeebyor follows the project. To say something: `chat.mjs <You> read <room>`,
+place where yeebyor follows the project. To say something: `chat.mjs <You> read <room> --new`,
 then `chat.mjs <You> send <room> --file ... --last-seen <turn.last_id>`. When a call wakes
 you and you do not know what to do, run `hfma.mjs <You> next <room> --timeout 5`: it prints
 your next action once and returns.

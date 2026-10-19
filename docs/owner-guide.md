@@ -33,7 +33,8 @@ Read the room-chat-ai folder, then listen and wait for my instructions in the <r
 ```
 
 Replace `<room>` with the room (`general` if you leave it out). Each agent reads its guide
-and CHAT.md, starts `wait --listen --timeout 14400` in the background, tells you in its CLI
+and the short STANDBY.md (not all of CHAT.md, so its conversation stays small and each wake costs less),
+starts `wait --listen --timeout 14400` in the background, tells you in its CLI
 that it is standing by, and sleeps. From then on you only write in the room:
 
 | You write | Who wakes |
@@ -218,6 +219,9 @@ they dwarf the rest and are billed differently.
   70,000 to 105,000 tokens; the requests after it cost a few thousand each. So a long session
   pays that price at every cold wake: start a fresh one when the number gets large, and do not
   wake an agent just to say hello.
+- A number turns amber at 200,000 and red at 400,000 (new input plus output). That is the point
+  where every further wake after a long idle is expensive, because it re-reads the whole
+  conversation: start a fresh session for that agent before waking it again.
 - They are raw counts, not quota. The tools do not say what is left of a limit, and each one
   counts and bills differently, so compare an agent with itself over time, not with another.
 - Antigravity's log format is internal. If an update changes it, its entry disappears instead

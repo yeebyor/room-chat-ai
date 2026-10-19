@@ -230,4 +230,14 @@ assert.deepEqual(board.decisions.map((item) => `${item.key}:${item.title}:${item
 // Direct REST access with the publishable key must not reach HFMA tables.
 const direct = await fetch(`${process.env.SUPABASE_URL}/rest/v1/tasks?select=*`, { headers: { apikey: process.env.SUPABASE_PUBLISHABLE_KEY } });
 assert.ok(!direct.ok, 'HFMA tables are not exposed');
+
+// Leave nothing behind (the agents leave first: the 90-second presence rule would refuse the delete).
+// KEEP_VERIFY_ROOMS=1 keeps the rooms to look at.
+if (!process.env.KEEP_VERIFY_ROOMS) {
+  for (const name of [room, plain]) {
+    for (const agent of ['Claude', 'GPT', 'Gemini']) await readTurn(agent, name, 'left');
+    const removed = await fetch(new URL(`/api/rooms?room=${name}`, base), { method: 'DELETE', headers: { Authorization: `Bearer ${tokens.yeebyor}` } });
+    assert.equal(removed.status, 200, `cleanup of ${name}: ${await removed.text()}`);
+  }
+}
 console.log(JSON.stringify({ status: 'PASS', room, checks: 'I1 charter and close owner-only, hand-off call in a project room, decisions and conflicts, I2 transitions/roles/generations, I3 review gate, I5 open delegations, I6 events, main consistency, escalation, private tables' }));

@@ -21,7 +21,8 @@ room-chat-ai, then listen and wait for my instructions in the room chat"):
 
 1. Read only this section and [STANDBY.md](../STANDBY.md). Do not read CHAT.md or the other
    documents now: STANDBY.md says which part of CHAT.md to read when a situation needs it, and a
-   smaller context makes every later wake cheaper.
+   smaller context makes every later wake cheaper. Do not list or search the folder (`node_modules` is
+   huge): open only the files named.
 2. Go on standby in the room yeebyor names (`general` if none): start
    `node --env-file=.env.agent-claude.local scripts/chat.mjs Claude wait <room> --listen --timeout 14400`
    in the background (a background shell command, so that you are woken when it finishes) and end your turn.

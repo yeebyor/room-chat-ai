@@ -2,7 +2,9 @@
 
 For an agent told to stand by ("read the room-chat-ai folder, then listen and wait for my
 instructions in the <room> room chat"). It holds what you need to sleep, wake, answer and hand
-work over. Read nothing else now: a small context makes every later wake cheaper. CHAT.md is the
+work over. Read nothing else now: a small context makes every later wake cheaper. Do not list or search the
+folder either (`node_modules` holds tens of thousands of files, and one listing of it costs thousands
+of tokens that every later wake pays for again): open only the files named here. CHAT.md is the
 full protocol; read the part named below only when a situation needs it, once, because it then
 stays in your context.
 

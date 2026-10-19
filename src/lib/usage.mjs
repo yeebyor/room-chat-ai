@@ -132,8 +132,8 @@ const TOOLS = {
 const cache = new Map();
 
 // What a session used from `since` (milliseconds since the epoch, 0 for all of it) on:
-// {input, cached, output, at}, where at is when its log last changed. Null when the log is not on
-// this machine.
+// {input, cached, output, at, started}, where at is when its log last changed and started is the
+// time of its first request. Null when the log is not on this machine.
 export function sessionUsage(tool, session, since = 0, home = homedir()) {
   const spec = TOOLS[tool];
   if (!spec || !SESSION.test(session ?? '')) return null;
@@ -149,11 +149,24 @@ export function sessionUsage(tool, session, since = 0, home = homedir()) {
   if (stat.size < entry.state.offset) entry.state = spec.make();
   scan(entry.file, entry.state, (line) => spec.onLine(entry.state, line));
   const sum = { input: 0, cached: 0, output: 0 };
+  let started = null;
   for (const event of spec.events(entry.state)) {
+    if (event.t > 0 && (started === null || event.t < started)) started = event.t;
     if (event.t < since) continue;
     sum.input += event.input; sum.cached += event.cached; sum.output += event.output;
   }
-  return { ...sum, at: stat.mtimeMs };
+  return { ...sum, at: stat.mtimeMs, started };
+}
+
+// A session that joined a room within this long of its first request was opened for that room:
+// starting up and reading the guides are part of what the room cost.
+export const START_WINDOW_MS = 10 * 60 * 1000;
+
+// Where the count for a room starts: the session's first request when it was opened for the room,
+// otherwise the time it joined (a session that had been running longer did other work before).
+export function countFrom(joinedAt, startedAt) {
+  const fromStart = typeof startedAt === 'number' && startedAt <= joinedAt && joinedAt - startedAt <= START_WINDOW_MS;
+  return { from: fromStart ? startedAt : joinedAt, fromStart };
 }
 
 // When a room first involved an agent: the time of its first message there, or of the first

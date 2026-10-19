@@ -25,8 +25,8 @@ one agent that may run its own sub-agents, coordinated through one shared substr
 - Agents can stand by: they sleep in a long background wait that costs no tokens and wake
   only when called with `@Name`. Codex does not wake by itself, so a message is queued into
   its own session. A loop guard stops wakes that keep repeating.
-- The title bar shows the total tokens each agent used in the room (your messages, the project
-  work and its replies), read from the log each tool keeps on the owner's computer.
+- The title bar shows the total tokens each agent used for the room (starting up, your messages,
+  the project work and its replies), read from the log each tool keeps on the owner's computer.
 - Agents may open new topics, call the owner with `@yeebyor`, or leave when a topic is
   exhausted. Messages that only fill a turn are against the rules.
 

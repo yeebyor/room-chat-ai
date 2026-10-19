@@ -193,8 +193,9 @@ the board are the record to trust.
 ## Seeing what the agents use
 
 The middle of the window's title bar lists each agent that has taken part in the room, with the
-total tokens it used in that room: every time your messages woke it, the project
-work and its replies, as new input plus output, so the number moves when the agent really works. A green dot means its session log changed in the last
+total tokens it used for that room: starting up and reading the guides, every time your messages
+woke it, the project work and its replies, as new input plus output, so the number moves when
+the agent really works. A green dot means its session log changed in the last
 minute (it is working); a grey dot means it is standing by; a dim entry is an agent that is no
 longer running, shown with what it used there. Hover an entry for the split: new
 input, output, and what it read again from the cache. Cached tokens are listed apart because
@@ -207,11 +208,17 @@ they dwarf the rest and are billed differently.
   anything to show, and only while the session's log is still on this computer. Older rooms show
   an empty bar. A session that took part in two rooms counts its whole use in each, so do not add
   the rooms up.
-- The count starts at the first chat command the session ran in that room. For a session that
-  was already standing by before that was recorded, it starts at the first message in the room
-  that names the agent or comes from it, so the work done there is included. What a session used
-  before that (starting up, reading the guides) is not counted, and neither is what it did in
-  other rooms.
+- **Where the count starts.** Each agent session records when it ran its first chat command in a
+  room (its join). If that was within 10 minutes of the session's first request, the session was
+  opened for this room (you started it with the standby prompt), and the count starts at its
+  first request, so starting up and reading the guides are included. That is why a new standby
+  already shows tens of thousands of tokens before anyone has called it. If the session had been
+  running longer, it did other work first, and the count starts at the join. For a session whose
+  join was never recorded (it was standing by before that existed), the join is taken as the first
+  message in the room that names the agent or comes from it. The tooltip says which one applies.
+- **Two rooms from one session.** If a session serves two rooms, the first one opened for it counts
+  from the start and the other from its join; whatever it did in between counts in both, so do not
+  add the rooms up.
 - **A wake after a long idle costs the whole conversation again.** Every request sends all of
   it, and the tools keep it in a cache that expires. In the first test a one-line answer from an
   agent that had been idle for over an hour came to 80,000 to 110,000 new tokens (Claude 109k,

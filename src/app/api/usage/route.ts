@@ -4,13 +4,13 @@ import { join } from "node:path";
 import type { NextRequest } from "next/server";
 import type { Agent, ChatMessage, MessageList } from "@/lib/chat-types";
 import { ChatError, chatRpc, credential, errorResponse, jsonResponse, roomName, tokenMatches, userToken } from "@/lib/chat-server";
-import { firstInvolved, sessionUsage } from "@/lib/usage.mjs";
+import { countFrom, firstInvolved, sessionUsage } from "@/lib/usage.mjs";
 
 export const runtime = "nodejs";
 
 // What each agent has used in this room since it joined, for the title bar. The numbers come
-// from the log each tool keeps on this computer (src/lib/usage.mjs): the requests it made from
-// the time chat.mjs wrote that the session joined the room. Only counts are returned, never text.
+// from the log each tool keeps on this computer (src/lib/usage.mjs): the requests it made from the
+// start of its session when it was opened for this room, otherwise from when it joined the room. Only counts are returned, never text.
 // yeebyor only, and only while the server runs on this computer.
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
 const AGENTS: Agent[] = ["Claude", "GPT", "Gemini"];
@@ -50,14 +50,17 @@ export async function GET(request: NextRequest) {
     for (const agent of AGENTS) {
       const record = joinedRecord(agent, room, messages);
       if (!record) continue;
-      const used = sessionUsage(record.tool, record.session, record.joined.at);
+      let used = sessionUsage(record.tool, record.session, record.joined.at);
       if (!used) continue;
+      // A session opened for this room counts from its first request, so starting up is included.
+      const { from, fromStart } = countFrom(record.joined.at, used.started);
+      if (fromStart) used = sessionUsage(record.tool, record.session, from) ?? used;
       const status = turn.present.includes(agent) ? "active" : turn.listening.includes(agent) ? "listening" : null;
       const working = Date.now() - used.at < WORKING_MS;
       // An agent that is no longer running stays in the list as "idle": its total in this room is
       // still what the room cost, and it shows for rooms from before as long as the log exists.
       const { input, cached, output } = used;
-      agents.push({ agent, tool: record.tool, status: working ? "working" : (status ?? "idle"), joined_at: record.joined.at, input, cached, output });
+      agents.push({ agent, tool: record.tool, status: working ? "working" : (status ?? "idle"), counted_from: from, from_start: fromStart, input, cached, output });
     }
     return jsonResponse({ room, agents });
   } catch (error) { return errorResponse(error); }

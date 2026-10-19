@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 // Tokens each agent used in this room since it joined, in the middle of the window's title bar.
 // The numbers are read from each tool's own log on this computer (src/app/api/usage/route.ts),
 // so the bar stays empty when the server does not run here or no agent has joined the room.
-type Row = { agent: string; tool: string; status: "working" | "active" | "listening" | "idle"; input: number; cached: number; output: number };
+type Row = { agent: string; tool: string; status: "working" | "active" | "listening" | "idle"; from_start: boolean; input: number; cached: number; output: number };
 
 const TOOL = { claude: "Claude Code", codex: "Codex", antigravity: "Antigravity" } as Record<string, string>;
 const STATUS = { working: "working", active: "in the room", listening: "standing by", idle: "not running" } as const;
@@ -48,7 +48,7 @@ export function UsageBar({ room }: { room: string }) {
         <li
           key={row.agent}
           className={`pointer-events-auto flex items-center gap-1.5 whitespace-nowrap ${row.status === "idle" ? "opacity-50" : ""}`}
-          title={`${row.agent} (${TOOL[row.tool] ?? row.tool}), ${STATUS[row.status]}\nTotal in this room (your messages, project work and its replies):\nnew input ${full(row.input)}, output ${full(row.output)}\nread again from cache ${full(row.cached)}${level === "ok" ? "" : "\nLarge: every wake after a long idle re-reads the whole conversation. Consider a fresh session."}`}
+          title={`${row.agent} (${TOOL[row.tool] ?? row.tool}), ${STATUS[row.status]}\nTotal in this room, counted from ${row.from_start ? "the start of its session (opened for this room, so starting up is included)" : "when it joined the room"}:\nnew input ${full(row.input)}, output ${full(row.output)}\nread again from cache ${full(row.cached)}${level === "ok" ? "" : "\nLarge: every wake after a long idle re-reads the whole conversation. Consider a fresh session."}`}
         >
           <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${row.status === "working" ? "bg-emerald-400" : row.status === "idle" ? "bg-white/15" : "bg-white/35"}`} />
           <span>{row.agent}</span>

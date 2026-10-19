@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { appendFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { firstInvolved, sessionOf, sessionUsage } from '../src/lib/usage.mjs';
+import { START_WINDOW_MS, countFrom, firstInvolved, sessionOf, sessionUsage } from '../src/lib/usage.mjs';
 
 const home = mkdtempSync(join(tmpdir(), 'usage-smoke-'));
 const figures = (u) => ({ input: u.input, cached: u.cached, output: u.output });
@@ -51,6 +51,16 @@ writeFileSync(join(agyDir, 'transcript_full.jsonl'),
 assert.deepEqual(figures(sessionUsage('antigravity', 'agy-conversation-1', 0, home)), { input: 120, cached: 100, output: 12 });
 assert.deepEqual(figures(sessionUsage('antigravity', 'agy-conversation-1', at(3), home)), { input: 20, cached: 100, output: 7 });
 
+// The first request of a session, and where the count for a room starts.
+assert.equal(sessionUsage('claude', 'claude-session-1', 0, home).started, at(2), 'the time of the first request');
+assert.equal(sessionUsage('antigravity', 'agy-conversation-1', 0, home).started, at(1));
+assert.equal(sessionUsage('codex', 'codex-thread-1', 0, home).started, at(1));
+assert.deepEqual(countFrom(at(5), at(1)), { from: at(1), fromStart: true }, 'opened for the room: from the first request');
+assert.deepEqual(countFrom(at(1) + START_WINDOW_MS, at(1)), { from: at(1), fromStart: true }, 'exactly at the window');
+assert.deepEqual(countFrom(at(1) + START_WINDOW_MS + 1, at(1)), { from: at(1) + START_WINDOW_MS + 1, fromStart: false }, 'running longer: from the join');
+assert.deepEqual(countFrom(at(5), null), { from: at(5), fromStart: false }, 'no first request known');
+assert.deepEqual(countFrom(at(1), at(5)), { from: at(1), fromStart: false }, 'a join before the first request');
+
 // Unknown or unsafe sessions read nothing.
 assert.equal(sessionUsage('claude', 'no-such-session', 0, home), null);
 assert.equal(sessionUsage('claude', '../../etc/passwd', 0, home), null);
@@ -75,4 +85,4 @@ assert.deepEqual(sessionOf({ CLAUDE_CODE_SESSION_ID: 'b' }), { tool: 'claude', s
 assert.deepEqual(sessionOf({ ANTIGRAVITY_CONVERSATION_ID: 'c' }), { tool: 'antigravity', session: 'c' });
 assert.equal(sessionOf({}), null);
 
-console.log(JSON.stringify({ status: 'PASS', checks: 'Claude Code (dedupe by message, cache writes as input, since a time, partial line, replaced log), Codex (cumulative totals, cold request, repeated total), Antigravity (per step, since a time), unsafe sessions, when a room first involved an agent, tool detection' }));
+console.log(JSON.stringify({ status: 'PASS', checks: 'Claude Code (dedupe by message, cache writes as input, since a time, partial line, replaced log), Codex (cumulative totals, cold request, repeated total), Antigravity (per step, since a time), unsafe sessions, the first request and where the count for a room starts, when a room first involved an agent, tool detection' }));

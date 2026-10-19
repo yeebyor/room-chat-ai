@@ -2,9 +2,9 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { NextRequest } from "next/server";
-import type { Agent, MessageList } from "@/lib/chat-types";
+import type { Agent, ChatMessage, MessageList } from "@/lib/chat-types";
 import { ChatError, chatRpc, credential, errorResponse, jsonResponse, roomName, tokenMatches, userToken } from "@/lib/chat-server";
-import { sessionUsage } from "@/lib/usage.mjs";
+import { firstInvolved, sessionUsage } from "@/lib/usage.mjs";
 
 export const runtime = "nodejs";
 
@@ -21,8 +21,8 @@ type Joined = { session: string; tool: string; joined: { at: number } };
 
 // chat.mjs writes the record when a session joins a room. A session that was already standing by
 // before that existed has a record without it: its tool is found by looking for the session's log,
-// and the count starts from now (the first time the app sees it).
-function joinedRecord(agent: Agent, room: string): Joined | null {
+// and the count starts when the room first involved the agent, so it covers the work done there.
+function joinedRecord(agent: Agent, room: string, messages: ChatMessage[]): Joined | null {
   const file = join(tmpdir(), `room-chat-ai-seen-${agent}-${room.replace(/[^A-Za-z0-9_-]/g, "")}.json`);
   try {
     const record = JSON.parse(readFileSync(file, "utf8"));
@@ -30,7 +30,7 @@ function joinedRecord(agent: Agent, room: string): Joined | null {
     if (record.tool && record.joined?.at) return record;
     for (const tool of ["claude", "codex", "antigravity"]) {
       if (!sessionUsage(tool, record.session, Infinity)) continue;
-      const joined = { at: Date.now() };
+      const joined = { at: firstInvolved(messages, agent) ?? Date.now() };
       writeFileSync(file, JSON.stringify({ ...record, tool, joined }));
       return { session: record.session, tool, joined };
     }
@@ -45,10 +45,10 @@ export async function GET(request: NextRequest) {
     if (!LOOPBACK.has(request.nextUrl.hostname)) throw new ChatError(403, "Token usage is only available while the server runs on this computer.");
     const room = roomName(request.nextUrl.searchParams.get("room") ?? "general");
     // Presence says who is standing by or working in the room right now (reading it reports none).
-    const { turn } = await chatRpc<MessageList>("chat_read", { p_token: token, p_room: room, p_limit: 1, p_after: null, p_before: null, p_presence: null });
+    const { turn, messages } = await chatRpc<MessageList>("chat_read", { p_token: token, p_room: room, p_limit: 200, p_after: null, p_before: null, p_presence: null });
     const agents = [];
     for (const agent of AGENTS) {
-      const record = joinedRecord(agent, room);
+      const record = joinedRecord(agent, room, messages);
       if (!record) continue;
       const used = sessionUsage(record.tool, record.session, record.joined.at);
       if (!used) continue;

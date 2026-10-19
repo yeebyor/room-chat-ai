@@ -36,12 +36,12 @@ export function UsageBar({ room }: { room: string }) {
 
   if (!rows.length) return null;
   return (
-    <ul aria-label="Tokens used since each agent joined this room" className="pointer-events-none absolute left-1/2 top-0 hidden h-full -translate-x-1/2 items-center gap-4 font-mono text-[11px] text-white/50 sm:flex">
+    <ul aria-label="Tokens each agent used in this room in total" className="pointer-events-none absolute left-1/2 top-0 hidden h-full -translate-x-1/2 items-center gap-4 font-mono text-[11px] text-white/50 sm:flex">
       {rows.map((row) => (
         <li
           key={row.agent}
           className="pointer-events-auto flex items-center gap-1.5 whitespace-nowrap"
-          title={`${row.agent} (${TOOL[row.tool] ?? row.tool}), ${STATUS[row.status]}\nSince it joined this room:\nnew input ${full(row.input)}, output ${full(row.output)}\nread again from cache ${full(row.cached)}`}
+          title={`${row.agent} (${TOOL[row.tool] ?? row.tool}), ${STATUS[row.status]}\nTotal in this room (your messages, project work and its replies):\nnew input ${full(row.input)}, output ${full(row.output)}\nread again from cache ${full(row.cached)}`}
         >
           <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${row.status === "working" ? "bg-emerald-400" : "bg-white/35"}`} />
           <span>{row.agent}</span>

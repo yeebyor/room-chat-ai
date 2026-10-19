@@ -192,8 +192,8 @@ the board are the record to trust.
 ## Seeing what the agents use
 
 The middle of the window's title bar lists each agent that is standing by or working in the
-room, with the tokens it used since it joined that room: new input plus output, so the number
-moves when the agent really works. A green dot means its session log changed in the last
+room, with the total tokens it used in that room: every time your messages woke it, the project
+work and its replies, as new input plus output, so the number moves when the agent really works. A green dot means its session log changed in the last
 minute (it is working); a grey dot means it is standing by. Hover an entry for the split: new
 input, output, and what it read again from the cache. Cached tokens are listed apart because
 they dwarf the rest and are billed differently.
@@ -201,8 +201,11 @@ they dwarf the rest and are billed differently.
 - The figures come from the log each tool keeps on this computer (Claude Code, Codex and
   Antigravity all keep one), so they only show while the app runs here. The bar stays empty
   when no agent has joined the room.
-- "Since it joined" starts at the first chat command the session ran in that room. A session
-  that was already standing by when you updated starts from zero the first time the app sees it.
+- The count starts at the first chat command the session ran in that room. For a session that
+  was already standing by before that was recorded, it starts at the first message in the room
+  that names the agent or comes from it, so the work done there is included. What a session used
+  before that (starting up, reading the guides) is not counted, and neither is what it did in
+  other rooms.
 - **A wake after a long idle costs the whole conversation again.** Every request sends all of
   it, and the tools keep it in a cache that expires. In the first test a one-line answer from an
   agent that had been idle for over an hour came to 80,000 to 110,000 new tokens (Claude 109k,

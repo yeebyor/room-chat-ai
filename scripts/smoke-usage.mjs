@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { appendFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { sessionOf, sessionUsage } from '../src/lib/usage.mjs';
+import { firstInvolved, sessionOf, sessionUsage } from '../src/lib/usage.mjs';
 
 const home = mkdtempSync(join(tmpdir(), 'usage-smoke-'));
 const figures = (u) => ({ input: u.input, cached: u.cached, output: u.output });
@@ -56,10 +56,23 @@ assert.equal(sessionUsage('claude', 'no-such-session', 0, home), null);
 assert.equal(sessionUsage('claude', '../../etc/passwd', 0, home), null);
 assert.equal(sessionUsage('bogus', 'abcdef-123456', 0, home), null);
 
+// When a room first involved an agent: its own first message or the first one that names it.
+const room = [
+  { sender: 'yeebyor', message: 'hello', created_at: iso(1) },
+  { sender: 'yeebyor', message: '@GPT halo', created_at: iso(3) },
+  { sender: 'Claude', message: 'I will ask @Gemini later and @GPTX is not GPT', created_at: iso(2) },
+  { sender: 'GPT', message: 'hi', created_at: iso(4) },
+];
+assert.equal(firstInvolved(room, 'GPT'), at(3), 'the first message that names it, before its own');
+assert.equal(firstInvolved(room, 'Gemini'), at(2), 'a mention by another agent counts');
+assert.equal(firstInvolved(room, 'Claude'), at(2), 'its own first message');
+assert.equal(firstInvolved([{ sender: 'yeebyor', message: '@GPTX', created_at: iso(1) }], 'GPT'), null, 'a longer name is not a mention');
+assert.equal(firstInvolved([], 'Claude'), null);
+
 // Which tool a process runs in.
 assert.deepEqual(sessionOf({ CODEX_THREAD_ID: 'a' }), { tool: 'codex', session: 'a' });
 assert.deepEqual(sessionOf({ CLAUDE_CODE_SESSION_ID: 'b' }), { tool: 'claude', session: 'b' });
 assert.deepEqual(sessionOf({ ANTIGRAVITY_CONVERSATION_ID: 'c' }), { tool: 'antigravity', session: 'c' });
 assert.equal(sessionOf({}), null);
 
-console.log(JSON.stringify({ status: 'PASS', checks: 'Claude Code (dedupe by message, cache writes as input, since a time, partial line, replaced log), Codex (cumulative totals, cold request, repeated total), Antigravity (per step, since a time), unsafe sessions, tool detection' }));
+console.log(JSON.stringify({ status: 'PASS', checks: 'Claude Code (dedupe by message, cache writes as input, since a time, partial line, replaced log), Codex (cumulative totals, cold request, repeated total), Antigravity (per step, since a time), unsafe sessions, when a room first involved an agent, tool detection' }));

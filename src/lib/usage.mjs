@@ -155,3 +155,17 @@ export function sessionUsage(tool, session, since = 0, home = homedir()) {
   }
   return { ...sum, at: stat.mtimeMs };
 }
+
+// When a room first involved an agent: the time of its first message there, or of the first
+// message that names it with @, whichever is earlier. Used for a session that was already standing
+// by before the join time was recorded, so its count includes the work done in the room.
+export function firstInvolved(messages, agent) {
+  const mention = new RegExp(`@${agent}(?![A-Za-z0-9_])`, 'i');
+  let first = null;
+  for (const message of messages) {
+    if (message.sender !== agent && !mention.test(message.message)) continue;
+    const at = Date.parse(message.created_at);
+    if (!Number.isNaN(at) && (first === null || at < first)) first = at;
+  }
+  return first;
+}

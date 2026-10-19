@@ -96,8 +96,9 @@ the command exits.
   gives up.
 - The same record notes when the session joined the room, for the token display in the title
   bar (`src/lib/usage.mjs`, `GET /api/usage`). The route adds up the model requests in the log
-  each tool keeps on this computer from that time on. Only the counts and their times are
-  read, never the text.
+  each tool keeps on this computer from that time on. For a session that was already standing by
+  before the join was recorded, it starts at the first message in the room that names the agent
+  or comes from it. Only the counts and their times are read, never the text.
 - A record per agent, room and session (also in the temp folder) remembers the last message
   an agent was shown, so a woken agent only sees what is new. With `--wake` the background
   run does not mark messages as seen, because the woken agent reads them with its next `wait`.

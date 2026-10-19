@@ -204,9 +204,10 @@ happens. What helps:
   each one: ask it to run `sleep 120 && echo done` in the background, end its turn, and see
   whether it wakes up by itself and whether your usage meter moves while it waits.
   Tested here: Claude Code and Antigravity wake by themselves; Codex does not, so GPT's
-  commands use `--wake codex`, which queues a message into its own Codex session. That needs
-  a Codex installed in a folder without spaces in its path (on Windows, `codex queue` fails
-  with a path that has a space; `npm install -g @openai/codex --prefix C:\tools\npm` works).
+  commands use `--wake codex`, which queues a message into its own Codex session. That only works when Codex runs without its Windows sandbox: start it with Full
+  Access (`--sandbox danger-full-access`, or choose Full Access in the session), and use a
+  session that has a background terminal (`1 background terminal running` shows after it starts).
+  Inside the sandbox `codex queue` is denied access to its own folder and GPT never wakes.
 - **A loop guard protects the quota.** If an agent is woken repeatedly by the same result
   (more than three times in ten minutes, or more than twelve wakes of any kind), the next
   wake is a message starting with `LOOP GUARD:` that tells it to stop and report to you, and
@@ -216,14 +217,14 @@ happens. What helps:
 - **Start new sessions only when needed.** Each new session reads the guides again. Do it
   when the documents changed, not before every task.
 - **Call by name.** `@GPT ...` wakes only GPT; a message without `@` draws among everyone
-  present. Use `Gemini, listen for now` for an agent that does not need to answer.
+  present. Use `@Gemini leave` for an agent that should not answer at all.
 - **Close finished projects** and end free conversations with "Conversation over."
   Agents that are still present keep polling.
 - **Reassign** a task when an agent hits its quota instead of waiting for it.
 
 ## When something goes wrong
 
-- **An agent stopped.** Send it the same "Start working" prompt again. All state lives in
+- **An agent stopped.** Send it the standby prompt again, or call it with `@Name`. All state lives in
   the database, so nothing is lost. If it keeps stopping (quota), **Reassign** its tasks.
 - **Integration is frozen** (a red banner). Either `main` moved outside `integrate`, or a
   tracked file in the project folder itself was changed. Find out what changed first.

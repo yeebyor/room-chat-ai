@@ -56,6 +56,37 @@ assert.equal((await ok('yeebyor', 'charter_set', { room, charter })).version, 1)
 assert.equal((await ok('GPT', 'charter_get', { room })).charter.orchestrator, 'Claude');
 await refused(422, /Unknown operation/, 'GPT', 'drop_everything', {});
 
+// Hand-off: in a project room an agent may call another agent with @name without holding the
+// turn (the other agents only listen, so nobody holds it); without a charter it is refused.
+const readTurn = async (sender, roomName, presence) => (await (await fetch(new URL(`/api/messages?room=${roomName}&limit=1${presence ? `&presence=${presence}` : ''}`, base), {
+  headers: { Authorization: `Bearer ${tokens[sender]}` }, signal: AbortSignal.timeout(15000) })).json()).turn;
+const post = async (sender, roomName, message, lastSeen) => {
+  const response = await fetch(new URL('/api/messages', base), {
+    method: 'POST', headers: { Authorization: `Bearer ${tokens[sender]}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ room: roomName, message, client_id: randomUUID(), ...(lastSeen === undefined ? {} : { last_seen_id: lastSeen }) }),
+    signal: AbortSignal.timeout(15000),
+  });
+  return { status: response.status, data: await response.json() };
+};
+const quietRoom = async (roomName) => {
+  assert.equal((await post('yeebyor', roomName, '@Claude start')).status, 201);
+  assert.equal((await post('Claude', roomName, 'Starting the first task myself.', (await readTurn('Claude', roomName)).last_id)).status, 201);
+  await readTurn('GPT', roomName, 'listening');
+  await readTurn('Gemini', roomName, 'listening');
+  return (await readTurn('Claude', roomName)).last_id;
+};
+let lastId = await quietRoom(room);
+const silent = await post('Claude', room, 'I finished, but I call nobody.', lastId);
+assert.equal(silent.status, 409);
+assert.match(silent.data.error, /No agent has the turn/);
+assert.equal((await post('Claude', room, '@GPT please review task 1 in this project.', lastId)).status, 201, 'A call with @ is allowed in a project room');
+assert.equal((await readTurn('Claude', room)).next, 'GPT', 'The called agent has the turn');
+const plain = `${room}-plain`;
+lastId = await quietRoom(plain);
+const refusedCall = await post('Claude', plain, '@GPT please review.', lastId);
+assert.equal(refusedCall.status, 409, 'Without a charter the same call is refused');
+assert.match(refusedCall.data.error, /No agent has the turn/);
+
 // I2: only the orchestrator or yeebyor creates tasks; claims follow team and dependencies.
 await refused(403, /orchestrator/, 'GPT', 'task_create', { room, title: 'Bukan orkestrator', team: 'GPT' });
 const a = (await ok('Claude', 'task_create', { room, title: 'Modul b', team: 'GPT' })).id;
@@ -199,4 +230,4 @@ assert.deepEqual(board.decisions.map((item) => `${item.key}:${item.title}:${item
 // Direct REST access with the publishable key must not reach HFMA tables.
 const direct = await fetch(`${process.env.SUPABASE_URL}/rest/v1/tasks?select=*`, { headers: { apikey: process.env.SUPABASE_PUBLISHABLE_KEY } });
 assert.ok(!direct.ok, 'HFMA tables are not exposed');
-console.log(JSON.stringify({ status: 'PASS', room, checks: 'I1 charter and close owner-only, decisions and conflicts, I2 transitions/roles/generations, I3 review gate, I5 open delegations, I6 events, main consistency, escalation, private tables' }));
+console.log(JSON.stringify({ status: 'PASS', room, checks: 'I1 charter and close owner-only, hand-off call in a project room, decisions and conflicts, I2 transitions/roles/generations, I3 review gate, I5 open delegations, I6 events, main consistency, escalation, private tables' }));

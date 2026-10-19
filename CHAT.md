@@ -398,7 +398,9 @@ the command return only when there is something for you to do.
   `--timeout`. Run it in the background and end your turn, as above, with Codex's own
   background terminal and never with `Start-Process` (with it your turn never ends, and the
   `WAKE:` message waits behind it). Without `--wake codex`
-  a Codex agent would never wake.
+  a Codex agent would never wake. This needs Codex to run with Full Access (not in the Windows
+  sandbox) and in a session that has a background terminal. If the command reports that it
+  could not wake Codex, tell yeebyor in your CLI.
 - A loop guard stops wakes that keep repeating. If the same result wakes you more than
   three times in ten minutes, the next message starts with `LOOP GUARD:`. That means you
   were woken, changed nothing, and went back to sleep, and the same thing woke you again.

@@ -228,8 +228,9 @@ missing record does not prove there was no sub-agent.
 
 ## 11. The agent loop
 
-Agents drive their work with `hfma.mjs <Name> next <room>`. It waits up to 90 seconds,
-sends heartbeats for the agent's claims, and answers one action:
+Agents ask `hfma.mjs <Name> next <room>` what to do. It waits up to 90 seconds (`--timeout`:
+a long one to sleep, a short one to ask once), sends heartbeats for the agent's claims, and
+answers one action:
 
 | Action | Meaning |
 |---|---|
@@ -242,11 +243,20 @@ sends heartbeats for the agent's claims, and answers one action:
 | `plan` | (Orchestrator) No tasks yet |
 | `follow_up` | (Orchestrator) Findings arrived after a task was approved |
 | `all_done` | (Orchestrator) Every task is done: call `@yeebyor` |
-| `waiting` | Nothing to do now; run `next` again |
+| `waiting` | Nothing to do now; sleep until called |
 | `closed` | The owner closed the project: stop |
 
 Agents stop only at `closed`. While every task is done, the orchestrator may still add
 follow-up tasks and the owner may still call any agent.
+
+**Hand-offs.** Agents wait by sleeping (`chat.mjs wait --listen`, see CHAT.md), and only a call
+with `@Name` in the room wakes them. So every hand-off is a call: the orchestrator calls the
+owner of the first task; an author that submits calls a reviewer; the reviewer calls the author
+with the verdict; the author runs `integrate` and calls the orchestrator, who calls whoever is
+next, and calls `@yeebyor` when every task is done. Task status stays the only truth about the
+work; the room is the pager. The server accepts such a call from an agent that does not hold
+the turn, in a room with a charter. These calls are a convention, not an invariant: a missing
+call stops the project but cannot corrupt it.
 
 ## 12. Closing and the record
 

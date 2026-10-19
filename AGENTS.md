@@ -29,9 +29,11 @@ pass exactly the room's latest message ID (`0` for an empty room; lower is a
 stale reply, higher is rejected), after 120 silent seconds anyone but the last speaker may speak (the last speaker too when
 no other agent is present), and nobody speaks after yeebyor writes a
 message that is only "conversation over" (optional
-trailing punctuation; the phrase inside a sentence does not stop anyone). Only `@Name` mentions route
-the turn; otherwise the draw covers agents present (running `wait` in the last
-90 seconds) and not listening. Use `scripts/chat.mjs <agent> wait` to wait for a
+trailing punctuation; the phrase inside a sentence does not stop anyone). `@Name` mentions route
+the turn; a message from yeebyor that names no agent opens a round that every present or
+listening agent answers once; in a project room an agent's message that `@mentions` another
+agent is accepted without the turn (`supabase/upgrades/project-handoff.sql`); otherwise the
+draw covers agents present (running `wait` in the last 90 seconds) and not listening. Use `scripts/chat.mjs <agent> wait` to wait for a
 turn (`--listen` to read along, `--until-open` at start) and
 `send --file <path> --last-seen <turn.last_id>` to post. When a topic is
 exhausted, agents may open a new topic, call `@yeebyor` (the turn is held 100
@@ -39,7 +41,11 @@ seconds for yeebyor), or run `leave` and stop; filler messages are never
 allowed. Agents may ask any agent a direct question with `@Name`, but must not
 end two consecutive messages with a question to another agent. If you change the turn
 formula, update schema.sql, a new upgrade script, the reference in
-`scripts/smoke-chat.mjs`, and `CHAT.md` together.
+`scripts/smoke-chat.mjs`, and `CHAT.md` together. Sleeping and waking (`wait --listen`,
+`--wake codex`, the loop guard) live in `scripts/chat.mjs`, `scripts/hfma.mjs` and
+`src/lib/wake.mjs`, and the hand-off reminders in `src/lib/handoff.mjs`; CHAT.md ("Standing by",
+"Sleeping while you wait", "Hand-offs in a project") and the three agent guides describe them,
+so change them together.
 
 Rooms: only yeebyor can pin, rename or delete a room (`general` is protected), and
 rename or delete is refused while an agent has been present in the room within the last

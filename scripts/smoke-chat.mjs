@@ -49,7 +49,14 @@ function expectedTurn(messages) {
   const present = others.filter((agent) => presence[agent] === 'active');
   const anyPresence = Object.keys(presence).length > 0;
   const lone = AGENTS.includes(last?.sender) && presence[last.sender] === 'active' ? [last.sender] : [];
-  const pool = called.length ? called : present.length ? present : anyPresence ? lone : others;
+  // A message from yeebyor that names no agent is for everyone: each agent present or listening
+  // answers once (a round), unless the last message hands the turn on with an @.
+  const ownerLast = messages.findLast((m) => m.sender === 'yeebyor');
+  const inRound = ownerLast && !/@(Claude|GPT|Gemini)\b/i.test(ownerLast.message) && !STOP.test(ownerLast.message)
+    && (last.id === ownerLast.id || (last.sender !== 'yeebyor' && !called.length));
+  const spoke = new Set(messages.filter((m) => BigInt(m.id) > BigInt(ownerLast?.id ?? 0)).map((m) => m.sender));
+  const round = inRound ? others.filter((agent) => ['active', 'listening'].includes(presence[agent]) && !spoke.has(agent)) : [];
+  const pool = called.length ? called : round.length ? round : present.length ? present : anyPresence ? lone : others;
   const weights = AGENTS.map((agent) => {
     if (!pool.includes(agent)) return 0;
     if (called.length === 1) return 1;
@@ -139,27 +146,39 @@ turn = await checkedTurn();
 assert.equal(turn.probabilities.Gemini, 0);
 assert.equal((await say(turn.next, 'Berdua', { last_seen_id: seen(turn) })).status, 201);
 
-// Presence: a listening agent is skipped until it is @mentioned.
+// Presence: a message from yeebyor that names no agent is answered once by every present or
+// listening agent, one at a time (a round). After the round a listening agent is skipped again.
 await report('Claude', 'active');
 await report('GPT', 'active');
 await report('Gemini', 'listening');
 assert.equal((await say('yeebyor', 'Lanjut tanpa panggilan.')).status, 201);
 turn = await checkedTurn();
-assert.equal(turn.probabilities.Gemini, 0);
+assert.deepEqual([...turn.round].sort(), ['Claude', 'GPT', 'Gemini']);
 assert.deepEqual([...turn.listening], ['Gemini']);
-const firstSpeaker = turn.next;
-assert.equal((await say(firstSpeaker, 'Satu', { last_seen_id: seen(turn) })).status, 201);
+const answered = [];
+for (let i = 0; i < 3; i++) {
+  turn = await checkedTurn();
+  assert.ok(turn.next && !answered.includes(turn.next), 'Each agent answers the round once');
+  answered.push(turn.next);
+  assert.equal((await say(turn.next, `Ronde ${i}`, { last_seen_id: seen(turn) })).status, 201);
+}
 turn = await checkedTurn();
-assert.equal(turn.next, firstSpeaker === 'Claude' ? 'GPT' : 'Claude', 'Only present agents are drawn');
+assert.notEqual(turn.next, 'Gemini', 'After the round only present agents are drawn');
 assert.equal((await say(turn.next, 'Dua', { last_seen_id: seen(turn) })).status, 201);
 assert.equal((await say('yeebyor', '@Gemini giliranmu.')).status, 201);
 turn = await checkedTurn();
 assert.equal(turn.next, 'Gemini');
 assert.equal((await say('Gemini', 'Hadir', { last_seen_id: seen(turn) })).status, 201);
-// Everyone listening: nobody may speak until someone is @mentioned.
+// Everyone listening: they still answer a message that names no agent, once each, and after
+// that nobody may speak until someone is @mentioned.
 await report('Claude', 'listening');
 await report('GPT', 'listening');
 assert.equal((await say('yeebyor', 'Tidak ada yang dipanggil.')).status, 201);
+for (let i = 0; i < 3; i++) {
+  turn = await checkedTurn();
+  assert.ok(turn.next, 'A listening agent answers the round');
+  assert.equal((await say(turn.next, `Ronde listening ${i}`, { last_seen_id: seen(turn) })).status, 201);
+}
 turn = await checkedTurn();
 assert.equal(turn.next, null);
 const idle = await say('Claude', 'Menyela', { last_seen_id: seen(turn) });
@@ -211,13 +230,13 @@ assert.equal((await say('yeebyor', 'Topik baru, siapa saja boleh mulai.')).statu
 equalOdds(await checkedTurn());
 
 const all = (await request(`/api/messages?room=${room}`, 'Claude')).data.messages;
-assert.equal(all.length, 30);
-assert.equal(new Set(all.map((message) => message.id)).size, 30);
-assert.equal((await request(`/api/messages?room=${room}`, 'Gemini')).data.count, 30);
+assert.equal(all.length, 35);
+assert.equal(new Set(all.map((message) => message.id)).size, 35);
+assert.equal((await request(`/api/messages?room=${room}`, 'Gemini')).data.count, 35);
 assert.ok(all.every((message, i) => i === 0 || BigInt(message.id) > BigInt(all[i - 1].id)));
 assert.equal(all[1].message, payload.message);
 const after = (await request(`/api/messages?room=${room}&after_id=${first.data.message.id}`, 'GPT')).data.messages;
-assert.equal(after.length, 28);
+assert.equal(after.length, 33);
 const before = (await request(`/api/messages?room=${room}&before_id=${first.data.message.id}`, 'GPT')).data.messages;
 assert.equal(before.length, 1);
 // Empty room: the opener is drawn 20 seconds after the first agent joins, among
@@ -362,5 +381,5 @@ const direct = await fetch(`${process.env.SUPABASE_URL}/rest/v1/messages?select=
   headers: { apikey: process.env.SUPABASE_PUBLISHABLE_KEY },
 });
 assert.ok(!direct.ok, 'Private messages are not exposed');
-console.log(JSON.stringify({ status: 'PASS', room, checks: 'credentials, identities, idempotency, validation, turn-taking, @mentions, presence, listening, empty-room gathering, @yeebyor wait, leave, lone agent, room create (owner only), activity, pins, rename, delete, realtime signals, stale replies, exact last_seen, stop phrase (whole message), per-discussion reset, concurrency, pagination, room isolation, private database access' }));
+console.log(JSON.stringify({ status: 'PASS', room, checks: 'credentials, identities, idempotency, validation, turn-taking, @mentions, presence, listening, round for a message that names no agent, empty-room gathering, @yeebyor wait, leave, lone agent, room create (owner only), activity, pins, rename, delete, realtime signals, stale replies, exact last_seen, stop phrase (whole message), per-discussion reset, concurrency, pagination, room isolation, private database access' }));
 console.log(`Browser verification: ${base}/?room=${room}`);

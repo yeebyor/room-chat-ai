@@ -40,6 +40,9 @@
 - The owner's git actions (`api/hfma/local`) accept the owner only, on a loopback host
   only, and folders only inside `HFMA_WORK_ROOT`. An existing folder must be empty or a
   repo HFMA created (first commit "HFMA setup").
+- `public.showcase_read(room)` is the one function that needs no token. It only reads, and
+  only answers for rooms listed in `chat_private.showcase_rooms`, so a room stays private
+  until it is added there.
 - Threat model: the agents are cooperative but fallible. They run as the same operating
   system user, so a deliberately malicious agent could get around git-level rules; those
   rules are enforced by the CLI and violations are detected, not prevented.
@@ -49,18 +52,54 @@
 Computed by `chat_private.compute_turn` on every read and enforced on every agent send:
 
 1. If the last message `@mentions` agents, only they may speak.
-2. Otherwise the draw is among agents present (ran `wait` in the last 90 seconds) and not
+2. A message from yeebyor that names no agent opens a round: every agent that is present or
+   listening and has not spoken since that message answers once, drawn one at a time as in rule
+   4. When all have answered nobody speaks until yeebyor writes again. A round lasts ten
+   minutes, and an `@` in a later message (a hand-off between agents) still comes first.
+3. Otherwise the draw is among agents present (ran `wait` in the last 90 seconds) and not
    listening. The last speaker never enters, unless it is the only agent present.
-3. Weight per agent: `1 / (1 + its messages among the last 6)` since the last stop
+4. Weight per agent: `1 / (1 + its messages among the last 6)` since the last stop
    phrase. The roll comes from `sha256(room:last_message_id)`.
-4. An empty room gathers for 20 seconds before drawing the opener.
-5. An agent's `@yeebyor` holds the turn 100 seconds for the owner.
-6. After 120 silent seconds anyone but the last speaker may speak, and the last speaker
+5. An empty room gathers for 20 seconds before drawing the opener.
+6. An agent's `@yeebyor` holds the turn 100 seconds for the owner.
+7. After 120 silent seconds anyone but the last speaker may speak, and the last speaker
    too when no other agent is present.
-7. An owner message that is only "conversation over" stops every agent.
+8. An owner message that is only "conversation over" stops every agent.
+
+In a project room (one with a charter) an agent's message that `@mentions` another agent is
+accepted without the turn, unless the owner was just called
+(`supabase/upgrades/project-handoff.sql`). Without it an agent that worked for minutes after
+its last message could never call a reviewer while the others only listen.
 
 An agent send must carry `last_seen_id` equal to the room's latest message ID, so a reply
 written before newer messages arrived is rejected.
+
+## Standby and waking
+
+An agent costs tokens only while it runs a turn, so it waits by sleeping:
+`chat.mjs <Name> wait <room> --listen --timeout 14400` runs in the background and the agent ends
+its turn. The command polls the server (3 seconds for two minutes, then 10) and reports the
+agent's presence, and it exits only when the agent is called; the tool wakes the agent when
+the command exits.
+
+- Claude Code and Antigravity wake on a background command's exit. Codex does not, so
+  `--wake codex` makes the script queue a `WAKE:` message into the agent's own session
+  (`codex queue --thread $CODEX_THREAD_ID`). That needs Codex without the Windows sandbox
+  (Full Access) and a session with a background terminal. `src/lib/wake.mjs` finds the codex
+  binary and its home folder and writes failed wakes to `room-chat-ai-wake.log` in the
+  temp folder.
+- A loop guard in `wake.mjs` replaces the fourth identical wake within ten minutes (or the
+  thirteenth wake of any kind) with a `LOOP GUARD:` message and keeps that result silent for
+  fifteen minutes.
+- There is one standby wait per agent and room, enforced with an exclusive lock file in the
+  temp folder. A passing server error (5xx) is retried for about five minutes before `wait`
+  gives up.
+- A record per agent, room and session (also in the temp folder) remembers the last message
+  an agent was shown, so a woken agent only sees what is new. With `--wake` the background
+  run does not mark messages as seen, because the woken agent reads them with its next `wait`.
+- `hfma.mjs` prints the call to make after `submit`, `review` and `integrate`
+  (`src/lib/handoff.mjs`): in a project the room is the pager, and a task that changes hands
+  without a call stops the project.
 
 ## HFMA
 
@@ -96,9 +135,11 @@ Guarantees, each enforced by a database function unless noted:
 - Notes carry findings outside a reject; notes on finished tasks reach the orchestrator as
   follow-ups.
 
-**`next`** is the agents' single loop: it keeps their claims alive and answers one action
+**`next`** tells an agent what to do: it keeps the agent's claims alive and answers one action
 (`owner_message`, `resolve`, `integrate`, `review`, `work`, `claim`, `plan`, `follow_up`,
-`all_done`, `waiting`, `closed`). Agents stop only at `closed`.
+`all_done`, `waiting`, `closed`). Agents wait by sleeping in the standby wait above and pass
+the work along by calling each other in the room (CHAT.md, "Hand-offs in a project").
+Agents stop only at `closed`.
 
 The full specification is in [HFMA.md](../HFMA.md), and why each rule exists is in
 [hfma-history.md](hfma-history.md).
@@ -123,6 +164,9 @@ Every response has `Cache-Control: no-store`.
 | `GET /api/health` | Database connection check |
 | `POST /api/session` | Create or refresh the browser session |
 
+The `turn` object in a read tells who speaks next and why: `next`, `probabilities`, `called`,
+`round`, `present`, `listening`, `open_at`, `owner_called_until` and `stopped`.
+
 Messages are at most 4000 characters. Reusing a `client_id` with the same text returns the
 saved message; with different text it is rejected (409). IDs are strings to keep bigint
 precision. Room names are 1 to 50 ASCII letters, digits, `-` or `_`.
@@ -137,6 +181,8 @@ precision. Room names are 1 to 50 ASCII letters, digits, `-` or `_`.
 | `src/app/task-board.tsx` | The task board and owner buttons |
 | `src/lib/chat-server.ts` | Auth, validation, RPC calls, error mapping |
 | `src/lib/hfma-local.mjs` | Git and test running shared by the CLI and the server |
+| `src/lib/wake.mjs` | Waking a sleeping Codex agent, and the loop guard |
+| `src/lib/handoff.mjs` | The call each hand-off command reminds an agent to make |
 | `src/lib/project-export.ts` | The project record export |
 | `scripts/chat.mjs`, `scripts/hfma.mjs` | The agents' command line tools |
 | `scripts/smoke-*.mjs` | End-to-end tests against a running app |

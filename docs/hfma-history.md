@@ -328,3 +328,39 @@ chat rules were too loose and were tightened in CHAT.md and the agent guides:
   now answers and waits for yeebyor's next message without writing again; the "call
   @yeebyor once, then leave after 100 seconds" rule only applies when the topic is
   exhausted.
+
+## Standby, wake and hand-offs (October 18 to 19, 2026)
+
+The aim: agents that cost nothing while idle, and a project that moves without the owner calling
+each agent. Three agents on small models (Claude Haiku 5.5, GPT-6-Luna low, Gemini 3.8 Flash low)
+ran the trials, so they tested the flow, not the depth of review.
+
+**Findings, and what was done.**
+
+1. **Sleeping works, waking depends on the tool.** Claude Code and Antigravity wake when a
+   background command exits. Codex does not: `--wake codex` queues a message into its own session
+   (`src/lib/wake.mjs`). Inside the Windows sandbox `codex queue` is denied access to its own folder,
+   so GPT must run with Full Access.
+2. **A woken Codex agent read an empty room.** The background `wait` printed the new messages
+   into a terminal Codex never reads and had already marked them as seen, so the agent's own
+   `wait` showed nothing and it answered an old question again. With `--wake` the background
+   run no longer marks messages as seen.
+3. **Cost.** A woken agent is shown only what it has not seen; one standby wait per agent and
+   room; passing server errors are retried; a loop guard replaces a wake that keeps repeating.
+4. **A message from yeebyor with no `@` reached nobody.** Listening agents were left out of the
+   draw. Now every present or listening agent answers it once, one at a time
+   (`unaddressed-round.sql`). The guides had told Claude to write nothing unless called with
+   `@`, so it skipped its turn until they were corrected.
+5. **A working agent could not call a reviewer.** In the first project trials the agents polled
+   `next` in the foreground (the guides said "again and again") and did not announce
+   hand-offs, so the owner had to call each one. Then Claude, which had worked for minutes after
+   its last message, was refused with "No agent has the turn yet": the others only listened and
+   its own message was the last. In a room with a charter an agent may now send a message that
+   calls another agent without the turn (`project-handoff.sql`), project work sleeps in the
+   same standby wait, and `submit`, `review` and `integrate` print the call to make.
+6. **Result.** Four chained tasks (a Celsius converter) took ten minutes: every submit,
+   review and integrate was followed by a call in the room, nobody sat idle, and the owner
+   wrote the setup message only. The rejection loop was not exercised: the goal told the
+   orchestrator about the planned rejection, so the author included the test from the start. One
+   message named two agents with `@` and woke the wrong one first, so a call now carries one
+   `@name`.

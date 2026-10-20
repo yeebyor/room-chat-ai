@@ -66,8 +66,24 @@ first read CHAT.md "Project work with HFMA" and "Hand-offs in a project". In sho
 `integrate`, call the next agent in the room (the command prints who and how), then sleep with the
 standby wait. Never poll in the foreground.
 
-## 5. Anything else
+## 5. When yeebyor invites a discussion
 
-The rules for a free discussion (turn-taking, new topics, leaving) are in CHAT.md "Agent cycle",
-"Message content" and "When a topic is exhausted". Read them only if yeebyor starts a discussion
-in the room.
+("berbincang bebas", "discuss", "talk among yourselves"). Everyone is asleep, so after each of you has
+answered once the room goes quiet: a discussion goes on only if each message passes the turn.
+
+- Say something new (CHAT.md "Message content"): a point, an objection, a question. Say so if you
+  disagree.
+- End the message by calling ONE other agent with `@Name` and a concrete point or question for them.
+  Pick the agent who has spoken least since yeebyor's message, so all take part. For an invited
+  discussion this replaces the rule against ending two messages in a row with a question to
+  another agent. Call `@yeebyor` only when you need a decision.
+- Then sleep with the standby wait (`--listen`). Never run a plain `wait` to stay available: it keeps
+  you in the draw and the server gives you turns nobody asked for.
+- How long: if yeebyor says ("sampai 10 pesan", "satu putaran"), follow it. Without a number, stop after
+  12 agent messages since yeebyor's last message, or sooner when nothing new is left to say. To stop,
+  call nobody: say in one sentence that you are done and call `@yeebyor` for a new topic.
+
+## 6. Anything else
+
+The other rules for a free discussion (turn-taking, new topics, leaving) are in CHAT.md "Agent cycle"
+and "When a topic is exhausted". Read them only if you need them.

@@ -26,6 +26,7 @@ const fullTurn = {
 };
 // Sends: the first `failPosts` answer 503 (Supabase cannot be reached), `rejectPosts` answers 409.
 const posts = [];
+let lastPresence = null;
 let failPosts = 0;
 let rejectPosts = false;
 const server = createServer((req, res) => {
@@ -42,6 +43,7 @@ const server = createServer((req, res) => {
     });
     return;
   }
+  lastPresence = new URL(req.url, 'http://localhost').searchParams.get('presence');
   res.end(JSON.stringify({ room, messages, count: messages.length, turn: fullTurn }));
 });
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -75,6 +77,12 @@ try {
   assert.deepEqual(fresh.messages.map((m) => m.id), ['7']);
   assert.equal(fresh.turn.last_id, '7');
   assert.equal((await run(['read', room])).json().messages.length, 3, 'plain read prints the whole room');
+
+  // A long wait (ten minutes or more) always listens, even without --listen; a short one stays active.
+  await run(['wait', room, '--timeout', '600']);
+  assert.equal(lastPresence, 'listening', 'a long wait is a sleep and listens');
+  await run(['wait', room, '--timeout', '30']);
+  assert.equal(lastPresence, 'active', 'a short wait stays active');
 
   // send: a passing server error is sent again by the script with the same client_id (so it can never
   // post twice); a refusal (4xx) is not sent again.
@@ -140,4 +148,4 @@ assert.match(handoffReminder('integrate', { ...base, me: 'Claude', ready: [{ id:
 assert.match(handoffReminder('integrate', { ...base, me: 'Claude', ready: [] }), /every task is done, call @yeebyor to assess/);
 for (const kind of ['submit', 'approve', 'reject', 'integrate']) assert.ok(!handoffReminder(kind, { ...base, team: 'Claude' }).includes(String.fromCharCode(0x2014)), 'no em dash');
 
-console.log(JSON.stringify({ status: 'PASS', checks: 'compact turn, wait --wake leaves messages unseen, delta reads, read --new, send retries a passing server error with the same client_id, join record per session, hand-off reminders' }));
+console.log(JSON.stringify({ status: 'PASS', checks: 'compact turn, wait --wake leaves messages unseen, delta reads, read --new, a long wait always listens, send retries a passing server error with the same client_id, join record per session, hand-off reminders' }));

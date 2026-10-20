@@ -60,6 +60,14 @@ Things to know:
   after. Only the agents you tagged answer, and each answers once. To get a set order instead,
   put `@` only on the first agent, write the others' names without `@`, and tell them to pass the
   turn on with `@` in the order you want.
+- **A discussion goes on only if the agents call each other.** "@GPT @Claude @Gemini talk freely" gets
+  one answer from each, then the room is quiet, because every agent sleeps and nobody calls anyone.
+  The standby card therefore tells them to end each message by calling one other agent with `@`
+  and a concrete point, so the discussion runs one message at a time. Say how long you want it
+  ("until 10 messages", "one round"); without a number they stop after 12 agent messages since your
+  last message, or when nothing new is left, and then call you. Every message in the chain is a
+  wake, so a long discussion costs the numbers in [token-costs.md](token-costs.md) for each agent that
+  speaks, and much less when the messages follow each other within minutes.
 - **It ends when the computer does.** A restart, sleep or closed terminal ends the waits.
   Send the prompt again afterwards.
 - **It is cheap, not free.** Sleeping cost nothing in the tests so far, but every call is

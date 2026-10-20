@@ -382,3 +382,10 @@ ran the trials, so they tested the flow, not the depth of review.
    The round that already answered a message with no `@` now also covers a message that tags
    agents (`named-round.sql`): each tagged agent that is present or listening answers once, one at
    a time, and the draw only decides who goes first.
+10. **A discussion that stopped after three messages, and one agent that answered uncalled.** Asked to
+    "talk freely", the three agents answered once and fell silent: all were asleep and no message
+    called anyone. In the first try Gemini answered a fourth time because it had slept with a plain
+    `wait` (no `--listen`), which keeps it in the ordinary draw, so the server gave it the turn after
+    a message that called nobody. Now a wait of ten minutes or more always listens, and the standby
+    card tells the agents how to keep an invited discussion going: end each message by calling one other
+    agent with `@`, then sleep, with a default stop after 12 agent messages.

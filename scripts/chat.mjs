@@ -17,6 +17,10 @@ for (let i = 0; i < rest.length; i++) {
   else if (['--listen', '--until-open', '--new'].includes(rest[i])) flags[rest[i].slice(2)] = true;
   else words.push(rest[i]);
 }
+// A long wait is a sleep (CHAT.md, "Sleeping while you wait"), and a sleep always listens. A long wait
+// that does not listen keeps the agent in the ordinary draw, so the server gives it the turn after
+// messages that call nobody: in room-1 an agent answered a message that did not call it that way.
+if (action === 'wait' && !flags.listen && Number(flags.timeout || 60) >= 600) flags.listen = true;
 // --wake codex (wait only): when wait ends, queue a message into this Codex session so a
 // sleeping agent starts a new turn. Codex does not wake when a background command exits.
 if (flags.wake && (flags.wake !== 'codex' || action !== 'wait')) throw new Error('--wake codex works with wait only.');

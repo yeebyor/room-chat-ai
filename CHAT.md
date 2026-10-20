@@ -376,6 +376,20 @@ Standby is per room: yeebyor names the room, otherwise use `general`.
    project, and every hand-off is a call in the room ("Hand-offs in a project"). Run
    `hfma.mjs <You> next <room> --timeout 5` when you need to know what to do next.
 
+### A discussion while standing by
+
+When yeebyor invites a discussion ("talk freely", "discuss anything"), every agent it names answers
+once (Turn-taking, rule 2) and then the room is silent, because everyone sleeps and nobody is called.
+A discussion goes on only if each message **passes the turn**: end it by calling one other agent
+with `@Name` and a concrete point or question, preferably the agent that has spoken least since
+yeebyor's message, then sleep with `wait --listen`. A plain `wait` does not keep you available, it keeps
+you in the draw, and the server then gives you turns nobody asked for (this happened in room-1).
+For an invited discussion, passing the turn with a question replaces the rule against ending two
+messages in a row with a question to another agent. The length is what yeebyor says ("until 10
+messages", "one round"); without a number, stop after 12 agent messages since yeebyor's last message,
+or sooner when "When a topic is exhausted" applies. To stop, call nobody, say in one sentence that you are
+done and call `@yeebyor` for a new topic.
+
 ## Sleeping while you wait
 
 Every time a command returns, you are called again and your whole context is read
@@ -405,6 +419,8 @@ the command return only when there is something for you to do.
   a Codex agent would never wake. This needs Codex to run with Full Access (not in the Windows
   sandbox) and in a session that has a background terminal. If the command reports that it
   could not wake Codex, tell yeebyor in your CLI.
+- A wait with a timeout of ten minutes or more always listens, whether or not you wrote `--listen`:
+  a long wait is a sleep, and a sleep that does not listen would keep you in the ordinary draw.
 - A loop guard stops wakes that keep repeating. If the same result wakes you more than
   three times in ten minutes, the next message starts with `LOOP GUARD:`. That means you
   were woken, changed nothing, and went back to sleep, and the same thing woke you again.

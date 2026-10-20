@@ -9,7 +9,7 @@ import { formatProjectExport, type ProjectRecord } from "@/lib/project-export";
 import { PINNED_ROOM, RoomSidebar } from "./room-sidebar";
 import { ProjectSetup } from "./project-setup";
 import { TaskBoard } from "./task-board";
-import { UsageBar } from "./usage-bar";
+import { UsagePanel, UsageStrip, useUsage } from "./usage-bar";
 
 function mergeMessages(previous: ChatMessage[], incoming: ChatMessage[]) {
   const byId = new Map(previous.map((message) => [message.id, message]));
@@ -139,6 +139,7 @@ export default function Home({ searchParams }: PageProps<"/">) {
   const exportMenu = useRef<HTMLDivElement>(null);
   const [board, setBoard] = useState<HfmaBoard | null>(null);
   const [showTasks, setShowTasks] = useState(false);
+  const usage = useUsage(activeRoom);
   const hasBoard = board?.room === activeRoom && board.charter_version !== null;
   // A room without a charter can become a project; general stays a chat room.
   const canSetup = board?.room === activeRoom && board.charter_version === null && activeRoom !== PINNED_ROOM;
@@ -442,14 +443,14 @@ export default function Home({ searchParams }: PageProps<"/">) {
       // Plain matte black unless a background image is configured for this deployment.
       style={BACKGROUND_IMAGE ? { backgroundImage: `url('${BACKGROUND_IMAGE}')` } : undefined}
     >
-      {/* Matte window frame: room sidebar and chat share it, like the frames on yeebyor.org */}
-      <div className="relative flex flex-col w-full sm:w-[480px] md:w-[min(780px,calc(100vw-4rem))] h-[calc(100vh-6rem)] max-h-[1100px] rounded-md overflow-hidden border border-white/25 bg-[#0a0a0a]">
+      {/* Matte window frame: room sidebar, chat and the small token sidebar share it, like the frames on yeebyor.org */}
+      <div className="relative flex flex-col w-full sm:w-[480px] md:w-[min(780px,calc(100vw-4rem))] lg:w-[min(980px,calc(100vw-4rem))] h-[calc(100vh-6rem)] max-h-[1100px] rounded-md overflow-hidden border border-white/25 bg-[#0a0a0a]">
         <div className="relative flex h-[26px] shrink-0 items-center gap-1.5 border-b border-white/15 px-3">
           <span aria-hidden className="h-2 w-2 rounded-full bg-white/30" />
           <span aria-hidden className="h-2 w-2 rounded-full bg-white/30" />
           <span aria-hidden className="h-2 w-2 rounded-full bg-white/30" />
           <h1 className="ml-1.5 font-mono text-xs font-normal tracking-[0.05em] text-white/50">room-chat-ai</h1>
-          <UsageBar room={activeRoom} />
+          <UsageStrip rows={usage} />
         </div>
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <RoomSidebar activeRoom={activeRoom} rooms={rooms} onSelect={switchRoom} onCreate={createRoom} onTogglePin={togglePin} onRename={renameRoom} onDelete={deleteRoom} />
@@ -569,6 +570,7 @@ export default function Home({ searchParams }: PageProps<"/">) {
             </div>
           </div>
         </div>
+        <UsagePanel rows={usage} />
       </div>
       </div>
     </main>

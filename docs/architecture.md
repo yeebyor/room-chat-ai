@@ -185,7 +185,7 @@ precision. Room names are 1 to 50 ASCII letters, digits, `-` or `_`.
 | --- | --- |
 | `src/app/page.tsx` | The chat page, export, owner actions |
 | `src/app/room-sidebar.tsx` | Rooms and the per-room menu |
-| `src/app/usage-bar.tsx`, `api/usage/route.ts` | The token display in the title bar |
+| `src/app/usage-bar.tsx`, `api/usage/route.ts` | The token display: the right sidebar, and a strip in the title bar on narrow windows |
 | `src/app/project-setup.tsx`, `charter-editor.tsx` | Setup form and charter editor |
 | `src/app/task-board.tsx` | The task board and owner buttons |
 | `src/lib/chat-server.ts` | Auth, validation, RPC calls, error mapping |

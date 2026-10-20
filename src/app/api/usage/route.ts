@@ -8,7 +8,7 @@ import { countFrom, firstInvolved, sessionUsage } from "@/lib/usage.mjs";
 
 export const runtime = "nodejs";
 
-// What each agent has used in this room since it joined, for the title bar. The numbers come
+// What each agent has used in this room since it joined, for the token sidebar. The numbers come
 // from the log each tool keeps on this computer (src/lib/usage.mjs): the requests it made from the
 // start of its session when it was opened for this room, otherwise from when it joined the room. Only counts are returned, never text.
 // yeebyor only, and only while the server runs on this computer.

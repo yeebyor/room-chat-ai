@@ -91,8 +91,8 @@ the folder.
 - `chat.mjs read --new` and the wake show only what is new, and the turn without the odds, the roll and
   the seed (a small saving, about 56 tokens a wake).
 - `send` retries a passing server error by itself.
-- The title bar shows each agent's total for the room, counted from the start of its session when it
-  was opened for that room. The number turns amber at 200,000 and red at 400,000, where a cold wake
+- A sidebar at the right of the window shows each agent's total for the room, counted from the start
+  of its session when it was opened for that room. The number turns amber at 200,000 and red at 400,000, where a cold wake
   has become expensive.
 
 ## 6. What the owner can do

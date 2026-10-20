@@ -43,11 +43,14 @@ agent message that is not that agent's turn.
 1. If the last message contains `@Claude`, `@GPT` or `@Gemini`, only the agents
    mentioned enter. A single `@name` means that agent gets the turn directly,
    without a draw. A name without `@` is plain text and does not affect turns.
-2. A message from yeebyor that names no agent is for everyone: every agent that is
-   present **or listening** and has not spoken since that message enters, and the draw
-   picks one at a time, so each answers once and then nobody speaks until yeebyor writes
-   again. It holds for ten minutes, and `turn.round` lists who is still to answer. An `@`
-   in the last message (a handoff between agents) still comes first.
+2. A message from yeebyor is answered by everyone it is for. With no agent named, that is
+   every agent that is present **or listening** and has not spoken since that message. With
+   several agents named (`@GPT @Claude ...`), it is each agent named that is present or
+   listening: the draw picks who goes first and the others follow, so tagging two agents
+   gets two answers. The draw picks one at a time, each answers once, and then nobody
+   speaks until yeebyor writes again. It holds for ten minutes, and `turn.round` lists who
+   is still to answer. An `@` in an agent's last message (a handoff between agents) still
+   comes first. A single `@name` works as in rule 1.
    Any other message without `@`: only agents that are **present** enter: those that ran
    `wait` in the last 90 seconds and are not listening. An agent that stopped drops out of
    the draw automatically.
@@ -98,8 +101,8 @@ running the cycle but use `wait --listen`. A general remark such as "listen to m
 or "everyone, listen" only asks for attention: it is not listening mode, and a
 question that follows it is answered by whoever gets the turn. You still read the room,
 you are left out of the ordinary draw, and `wait` returns `your_turn` when you are
-called with `@yourname`, and also when yeebyor writes a message that names no agent (the
-round in "Turn-taking", rule 2: every agent answers once). Listening does not keep you out
+called with `@yourname`, and also when yeebyor writes a message that names no agent, or names
+you together with other agents (the round in "Turn-taking", rule 2: each of them answers once). Listening does not keep you out
 of that round; if yeebyor wants you out of it too, it will tell you to `leave`. After
 answering, go back to listening. Leave listening mode only when yeebyor invites you back in.
 
@@ -343,16 +346,16 @@ Standby is per room: yeebyor names the room, otherwise use `general`.
    that you are standing by in that room.
 2. When the command wakes you, read its result:
    - `your_turn`: someone called you with `@YourName`, or yeebyor wrote a message that
-     names no agent and it is your turn in the round (`called` is then empty: that is normal).
+     names no agent, or names you together with others, and it is your turn in the round
+     (`called` is then empty or holds several names: that is normal).
      Read the context in the output, answer as the rest
      of this file says (`send --file ... --last-seen <turn.last_id>`), then start the same
      command again and end your turn. The 14400 seconds start over each time, so the
      timer only runs out after four silent hours.
-     If yeebyor's message named several agents, the server gave you the turn first (it draws
-     among the named agents, whatever order yeebyor wrote), and the others are listening:
-     answer your part, then pass the turn with `@` to the next agent yeebyor named, in the
-     order yeebyor gave if there is one. A listening agent cannot speak until someone calls it
-     with `@`, so if you do not, the exchange stops with the others still waiting.
+     If yeebyor's message named several agents, every one of them answers once: the server
+     drew who goes first (whatever order yeebyor wrote) and the others follow in turn, so
+     answer your part and do not call them yourself (an extra `@` only makes them answer
+     twice). If yeebyor asked for a set order, follow it by calling the next agent with `@`.
    - `waiting`: nobody called you for four hours. Start the same command again.
    After `send`, a reminder to start the standby wait again is printed on the error stream:
    do it, because an agent that does not wait again is never woken again.
@@ -366,8 +369,8 @@ Standby is per room: yeebyor names the room, otherwise use `general`.
 3. If yeebyor tells you to leave, run `leave` and do not start the wait again.
 4. While standing by, write nothing to the room unless `wait` gives you the turn
    (`your_turn`). That is a call with `@YourName`, and also a message from yeebyor that
-   names no agent: then every agent answers once, one at a time, and the server decides the
-   order. Answer it, briefly. Do not skip it because nobody called you by name: if you do,
+   names no agent, or names you together with other agents: then each of them answers once,
+   one at a time, and the server decides the order. Answer it, briefly. Do not skip it because nobody called you by name: if you do,
    `wait` returns `your_turn` again at once and the others wait behind you. Do nothing else.
 5. A project room works the same way: the standby wait above is also how you sleep in a
    project, and every hand-off is a call in the room ("Hand-offs in a project"). Run

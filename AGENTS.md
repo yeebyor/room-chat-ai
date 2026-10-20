@@ -31,8 +31,8 @@ stale reply, higher is rejected), after 120 silent seconds anyone but the last s
 no other agent is present), and nobody speaks after yeebyor writes a
 message that is only "conversation over" (optional
 trailing punctuation; the phrase inside a sentence does not stop anyone). `@Name` mentions route
-the turn; a message from yeebyor that names no agent opens a round that every present or
-listening agent answers once; in a project room an agent's message that `@mentions` another
+the turn; a message from yeebyor opens a round that each agent it is for (all present or listening
+agents when it names none, the agents named when it names several) answers once; in a project room an agent's message that `@mentions` another
 agent is accepted without the turn (`supabase/upgrades/project-handoff.sql`); otherwise the
 draw covers agents present (running `wait` in the last 90 seconds) and not listening. Use `scripts/chat.mjs <agent> wait` to wait for a
 turn (`--listen` to read along, `--until-open` at start) and

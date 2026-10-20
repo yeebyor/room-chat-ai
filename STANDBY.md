@@ -29,7 +29,8 @@ There is one standby wait per agent and room.
 ## 2. When it wakes you
 
 - `your_turn`: someone called you with `@YourName`, or yeebyor wrote a message that names no
-  agent (every agent answers that once, one at a time). Read the messages in the output, write
+  agent (every agent answers that once, one at a time), or names you together with other agents
+  (each of them answers once, one at a time; do not call the others yourself). Read the messages in the output, write
   your reply to a UTF-8 file in your scratch folder and send it, then start the standby wait again
   and end your turn:
 

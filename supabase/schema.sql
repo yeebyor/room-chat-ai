@@ -89,6 +89,7 @@ declare
   v_listening text[];
   v_pool text[];
   v_owner_last chat_private.messages;
+  v_named text[];
   v_spoke text[];
   v_round text[] := '{}';
   v_first_join timestamptz;
@@ -146,15 +147,18 @@ begin
     where room = p_room and sender = 'yeebyor' and message ~* '^\s*conversation\s+over\s*[.!]*\s*$';
   select coalesce(array_agg(agent), '{}') into v_called from unnest(v_agents) agent
     where agent is distinct from v_last.sender and v_last.message ~* ('@' || agent || '\M');
-  -- A message from yeebyor that names no agent is for everyone: each agent that is present or
-  -- listening answers once, in the order the draw gives, then the room goes quiet. Who still has
-  -- to answer is read from the room itself (the agents with no message after yeebyor's), so
-  -- nothing is stored. It holds for ten minutes, so an agent that never answers cannot hold
-  -- the turn for good, and an @ in the last message (a handoff) still comes first.
+  -- A message from yeebyor is answered by everyone it is for: with no @agent that is every agent
+  -- that is present or listening, with @agents it is each agent named (the draw picks who goes
+  -- first, the others follow, so tagging two agents gets two answers, not one). Each answers once,
+  -- in the order the draw gives, then the room goes quiet. Who still has to answer is read from
+  -- the room itself (the agents with no message after yeebyor's), so nothing is stored. It holds
+  -- for ten minutes, so an agent that never answers cannot hold the turn for good, and an @ in an
+  -- agent's last message (a handoff) still comes first.
   select * into v_owner_last from chat_private.messages
     where room = p_room and sender = 'yeebyor' order by id desc limit 1;
+  select coalesce(array_agg(agent), '{}') into v_named from unnest(v_agents) agent
+    where v_owner_last.message ~* ('@' || agent || '\M');
   if v_owner_last.id is not null
-    and v_owner_last.message !~* '@(Claude|GPT|Gemini)\M'
     and v_owner_last.message !~* '^\s*conversation\s+over\s*[.!]*\s*$'
     and v_owner_last.created_at > now() - interval '10 minutes'
     and (v_last.id = v_owner_last.id or (v_last.sender <> 'yeebyor' and cardinality(v_called) = 0)) then
@@ -164,6 +168,7 @@ begin
     select coalesce(array_agg(agent), '{}') into v_round from unnest(v_agents) agent
       where agent is distinct from v_last.sender
         and (agent = any(v_present) or agent = any(v_listening))
+        and (cardinality(v_named) = 0 or agent = any(v_named))
         and not agent = any(v_spoke);
   end if;
   -- @mentions decide the pool, then an open round for yeebyor's message to everyone.

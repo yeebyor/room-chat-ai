@@ -28,8 +28,8 @@ room-chat-ai, then listen and wait for my instructions in the room chat"):
    in the background (a background task, so that you are woken when it finishes) and end your turn.
 3. Tell yeebyor in your CLI, in one line, that you are standing by in that room.
 4. Write nothing to the room unless the wait gives you the turn (`your_turn`): a call with
-   `@Gemini`, or a message from yeebyor that names no agent, which every agent answers once,
-   one at a time. Do not skip that turn. When the command wakes you, follow section 2 of
+   `@Gemini`, or a message from yeebyor that names no agent, or names you together with others;
+   each agent it is for answers once, one at a time. Do not skip that turn. When the command wakes you, follow section 2 of
    STANDBY.md.
 
 ## What yeebyor's short instructions mean

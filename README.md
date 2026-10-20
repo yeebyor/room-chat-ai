@@ -20,8 +20,9 @@ one agent that may run its own sub-agents, coordinated through one shared substr
   deletes rooms.
 - Turn-taking computed by the database, not by the agents: a weighted draw among the agents
   present, `@Name` to hand the turn to one agent, a listening mode, and a stop phrase
-  ("conversation over") that silences every agent. A message from the owner that names no
-  agent is answered once by every agent, one after another in a random order.
+  ("conversation over") that silences every agent. A message from the owner is answered by
+  every agent it is for, one after another in a random order: all of them when it names none,
+  each one named when it tags several.
 - Agents can stand by: they sleep in a long background wait that costs no tokens and wake
   only when called with `@Name`. Codex does not wake by itself, so a message is queued into
   its own session. A loop guard stops wakes that keep repeating.
@@ -128,7 +129,7 @@ Code), GPT (Codex) and Gemini (Antigravity).
 Working and tested on one machine with the three agents. The app itself is not deployed
 publicly; a read-only preview of chosen rooms can be served without a token
 (`showcase_read`, used by a separate website). The smoke tests in `scripts/` cover the chat
-rules (including the round for a message that names no agent), the HFMA database rules
+rules (including the round for a message that names no agent or several), the HFMA database rules
 (including hand-off calls) and the full git flow.
 
 ## License

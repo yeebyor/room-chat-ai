@@ -49,13 +49,15 @@ function expectedTurn(messages) {
   const present = others.filter((agent) => presence[agent] === 'active');
   const anyPresence = Object.keys(presence).length > 0;
   const lone = AGENTS.includes(last?.sender) && presence[last.sender] === 'active' ? [last.sender] : [];
-  // A message from yeebyor that names no agent is for everyone: each agent present or listening
-  // answers once (a round), unless the last message hands the turn on with an @.
+  // A message from yeebyor is answered by everyone it is for (a round): with no @agent every agent
+  // present or listening, with @agents each agent named (the draw only picks who goes first). Each
+  // answers once, unless an agent's reply hands the turn on with an @.
   const ownerLast = messages.findLast((m) => m.sender === 'yeebyor');
-  const inRound = ownerLast && !/@(Claude|GPT|Gemini)\b/i.test(ownerLast.message) && !STOP.test(ownerLast.message)
+  const named = AGENTS.filter((agent) => ownerLast && new RegExp(`@${agent}\\b`, 'i').test(ownerLast.message));
+  const inRound = ownerLast && !STOP.test(ownerLast.message)
     && (last.id === ownerLast.id || (last.sender !== 'yeebyor' && !called.length));
   const spoke = new Set(messages.filter((m) => BigInt(m.id) > BigInt(ownerLast?.id ?? 0)).map((m) => m.sender));
-  const round = inRound ? others.filter((agent) => ['active', 'listening'].includes(presence[agent]) && !spoke.has(agent)) : [];
+  const round = inRound ? others.filter((agent) => ['active', 'listening'].includes(presence[agent]) && (!named.length || named.includes(agent)) && !spoke.has(agent)) : [];
   const pool = called.length ? called : round.length ? round : present.length ? present : anyPresence ? lone : others;
   const weights = AGENTS.map((agent) => {
     if (!pool.includes(agent)) return 0;
@@ -165,6 +167,19 @@ for (let i = 0; i < 3; i++) {
 turn = await checkedTurn();
 assert.notEqual(turn.next, 'Gemini', 'After the round only present agents are drawn');
 assert.equal((await say(turn.next, 'Dua', { last_seen_id: seen(turn) })).status, 201);
+// Tagging two agents gets two answers: each named agent that is present or listening answers once,
+// one at a time, and the draw only picks who goes first. Claude, who is not named, is not asked.
+assert.equal((await say('yeebyor', '@GPT @Gemini kalian berdua apa kabar?')).status, 201);
+turn = await checkedTurn();
+assert.deepEqual([...turn.round].sort(), ['GPT', 'Gemini']);
+const tagged = [];
+for (let i = 0; i < 2; i++) {
+  turn = await checkedTurn();
+  assert.ok(['GPT', 'Gemini'].includes(turn.next) && !tagged.includes(turn.next), 'Each tagged agent answers once');
+  tagged.push(turn.next);
+  assert.equal((await say(turn.next, `Jawaban tag ${i}`, { last_seen_id: seen(turn) })).status, 201);
+}
+await checkedTurn();
 assert.equal((await say('yeebyor', '@Gemini giliranmu.')).status, 201);
 turn = await checkedTurn();
 assert.equal(turn.next, 'Gemini');
@@ -230,13 +245,13 @@ assert.equal((await say('yeebyor', 'Topik baru, siapa saja boleh mulai.')).statu
 equalOdds(await checkedTurn());
 
 const all = (await request(`/api/messages?room=${room}`, 'Claude')).data.messages;
-assert.equal(all.length, 35);
-assert.equal(new Set(all.map((message) => message.id)).size, 35);
-assert.equal((await request(`/api/messages?room=${room}`, 'Gemini')).data.count, 35);
+assert.equal(all.length, 38);
+assert.equal(new Set(all.map((message) => message.id)).size, 38);
+assert.equal((await request(`/api/messages?room=${room}`, 'Gemini')).data.count, 38);
 assert.ok(all.every((message, i) => i === 0 || BigInt(message.id) > BigInt(all[i - 1].id)));
 assert.equal(all[1].message, payload.message);
 const after = (await request(`/api/messages?room=${room}&after_id=${first.data.message.id}`, 'GPT')).data.messages;
-assert.equal(after.length, 33);
+assert.equal(after.length, 36);
 const before = (await request(`/api/messages?room=${room}&before_id=${first.data.message.id}`, 'GPT')).data.messages;
 assert.equal(before.length, 1);
 // Empty room: the opener is drawn 20 seconds after the first agent joins, among
@@ -392,5 +407,5 @@ if (!keep) {
     assert.equal(removed.status, 200, `cleanup of ${name}: ${JSON.stringify(removed.data)}`);
   }
 }
-console.log(JSON.stringify({ status: 'PASS', room, checks: 'credentials, identities, idempotency, validation, turn-taking, @mentions, presence, listening, round for a message that names no agent, empty-room gathering, @yeebyor wait, leave, lone agent, room create (owner only), activity, pins, rename, delete, realtime signals, stale replies, exact last_seen, stop phrase (whole message), per-discussion reset, concurrency, pagination, room isolation, private database access' }));
+console.log(JSON.stringify({ status: 'PASS', room, checks: 'credentials, identities, idempotency, validation, turn-taking, @mentions, presence, listening, round for a message that names no agent or several, empty-room gathering, @yeebyor wait, leave, lone agent, room create (owner only), activity, pins, rename, delete, realtime signals, stale replies, exact last_seen, stop phrase (whole message), per-discussion reset, concurrency, pagination, room isolation, private database access' }));
 if (keep) console.log(`Browser verification: ${base}/?room=${room}`);

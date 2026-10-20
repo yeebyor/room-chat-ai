@@ -377,3 +377,8 @@ ran the trials, so they tested the flow, not the depth of review.
    seven requests for one answer came from a passing Supabase error on `send` that it then
    investigated; `send` now retries by itself. The measurements, the causes and the advice are in
    [token-costs.md](token-costs.md).
+9. **Tagging two agents got one answer.** `@GPT @Claude what are you doing?` gave the turn to one
+   of the two, drawn at random, and the other answered only if the first remembered to call it.
+   The round that already answered a message with no `@` now also covers a message that tags
+   agents (`named-round.sql`): each tagged agent that is present or listening answers once, one at
+   a time, and the draw only decides who goes first.

@@ -52,9 +52,11 @@
 Computed by `chat_private.compute_turn` on every read and enforced on every agent send:
 
 1. If the last message `@mentions` agents, only they may speak.
-2. A message from yeebyor that names no agent opens a round: every agent that is present or
-   listening and has not spoken since that message answers once, drawn one at a time as in rule
-   4. When all have answered nobody speaks until yeebyor writes again. A round lasts ten
+2. A message from yeebyor opens a round: every agent it is for answers once, drawn one at a time as
+   in rule 4. With no agent named that is every agent present or listening that has not spoken
+   since the message; with several agents named it is each named agent that is present or
+   listening (the draw only picks who goes first). When all have answered nobody speaks until
+   yeebyor writes again. A single `@name` is rule 1. A round lasts ten
    minutes, and an `@` in a later message (a hand-off between agents) still comes first.
 3. Otherwise the draw is among agents present (ran `wait` in the last 90 seconds) and not
    listening. The last speaker never enters, unless it is the only agent present.

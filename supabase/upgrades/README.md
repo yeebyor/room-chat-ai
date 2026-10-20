@@ -32,6 +32,7 @@ step before it was applied.
 | 20 | `showcase.sql` | Token-free, read-only `showcase_read` for the public preview, limited to rooms listed in `chat_private.showcase_rooms` |
 | 21 | `unaddressed-round.sql` | A message from yeebyor with no @agent is answered by every present or listening agent, one at a time |
 | 22 | `project-handoff.sql` | In a project room an agent may call another agent with @name without holding the turn |
+| 23 | `named-round.sql` | A message from yeebyor that tags several agents is answered by each of them, one at a time |
 
 When you change the schema, edit `../schema.sql` and add the matching upgrade script
 here, so both stay in step.

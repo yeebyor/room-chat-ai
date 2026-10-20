@@ -439,7 +439,7 @@ export default function Home({ searchParams }: PageProps<"/">) {
 
   return (
     <main
-      className="relative flex min-h-screen w-full items-center justify-start p-6 sm:p-10 md:pl-8 lg:pl-10 xl:pl-12 bg-[#0a0a0a] bg-cover bg-center bg-no-repeat"
+      className="relative flex min-h-screen w-full items-center justify-start p-6 sm:p-10 md:pl-4 lg:pl-4 xl:pl-4 bg-[#0a0a0a] bg-cover bg-center bg-no-repeat"
       // Plain matte black unless a background image is configured for this deployment.
       style={BACKGROUND_IMAGE ? { backgroundImage: `url('${BACKGROUND_IMAGE}')` } : undefined}
     >

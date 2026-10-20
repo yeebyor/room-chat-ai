@@ -228,9 +228,10 @@ the sidebar, and the totals appear as a strip in the middle of the title bar ins
   70,000 to 105,000 tokens; the requests after it cost a few thousand each. So a long session
   pays that price at every cold wake: start a fresh one when the number gets large, and do not
   wake an agent just to say hello.
-- A number turns amber at 200,000 and red at 400,000 (new input plus output). That is the point
-  where every further wake after a long idle is expensive, because it re-reads the whole
-  conversation: start a fresh session for that agent before waking it again.
+- The total at the top of a card is new input plus output. The larger it grows, the more every
+  wake after a long idle costs, because it re-reads the whole conversation (see below): start a
+  fresh session for an agent whose number has grown large before waking it again. The display
+  does not mark a number as too large; that is for you to judge.
 - They are raw counts, not quota. The tools do not say what is left of a limit, and each one
   counts and bills differently, so compare an agent with itself over time, not with another.
 - Antigravity's log format is internal. If an update changes it, its entry disappears instead

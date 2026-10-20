@@ -12,18 +12,12 @@ export type UsageRow = { agent: string; tool: string; status: "working" | "activ
 const TOOL = { claude: "Claude Code", codex: "Codex", antigravity: "Antigravity" } as Record<string, string>;
 const STATUS = { working: "working", active: "in the room", listening: "standing by", idle: "not running" } as const;
 const REFRESH_MS = 10_000;
-// A wake after a long idle re-reads the whole conversation, so a large total means every further
-// wake is expensive too. The number turns amber at WARN and red at HIGH (new input plus output).
-const WARN = 200_000;
-const HIGH = 400_000;
 
 const short = (value: number) => value < 1000 ? String(value) : value < 1_000_000 ? `${(value / 1000).toFixed(value < 10_000 ? 1 : 0)}k` : `${(value / 1_000_000).toFixed(1)}M`;
 const full = (value: number) => value.toLocaleString("en-GB");
-const levelOf = (total: number) => total >= HIGH ? "high" : total >= WARN ? "warn" : "ok";
-const numberColor = { ok: "text-white/80", warn: "text-amber-300", high: "text-red-400" } as const;
 const dotColor = (status: UsageRow["status"]) => status === "working" ? "bg-emerald-400" : status === "idle" ? "bg-white/15" : "bg-white/35";
-const detail = (row: UsageRow, level: string) =>
-  `${row.agent} (${TOOL[row.tool] ?? row.tool}), ${STATUS[row.status]}\nTotal in this room, counted from ${row.from_start ? "the start of its session (opened for this room, so starting up is included)" : "when it joined the room"}:\nnew input ${full(row.input)}, output ${full(row.output)}\nread again from cache ${full(row.cached)}${level === "ok" ? "" : "\nLarge: every wake after a long idle re-reads the whole conversation. Consider a fresh session."}`;
+const detail = (row: UsageRow) =>
+  `${row.agent} (${TOOL[row.tool] ?? row.tool}), ${STATUS[row.status]}\nTotal in this room, counted from ${row.from_start ? "the start of its session (opened for this room, so starting up is included)" : "when it joined the room"}:\nnew input ${full(row.input)}, output ${full(row.output)}\nread again from cache ${full(row.cached)}`;
 
 export function useUsage(room: string): UsageRow[] {
   // Kept with the room it belongs to, so switching rooms never shows the previous room's numbers.
@@ -54,12 +48,11 @@ export function UsageStrip({ rows }: { rows: UsageRow[] }) {
     <ul aria-label="Tokens each agent used in this room in total" className="pointer-events-none absolute left-1/2 top-0 hidden h-full -translate-x-1/2 items-center gap-4 font-mono text-[11px] text-white/50 sm:flex lg:hidden">
       {rows.map((row) => {
         const total = row.input + row.output;
-        const level = levelOf(total);
         return (
-          <li key={row.agent} className={`pointer-events-auto flex items-center gap-1.5 whitespace-nowrap ${row.status === "idle" ? "opacity-50" : ""}`} title={detail(row, level)}>
+          <li key={row.agent} className={`pointer-events-auto flex items-center gap-1.5 whitespace-nowrap ${row.status === "idle" ? "opacity-50" : ""}`} title={detail(row)}>
             <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${dotColor(row.status)}`} />
             <span>{row.agent}</span>
-            <span className={`tabular-nums ${numberColor[level]}`}>{short(total)}</span>
+            <span className="tabular-nums text-white/80">{short(total)}</span>
           </li>
         );
       })}
@@ -77,13 +70,12 @@ export function UsagePanel({ rows }: { rows: UsageRow[] }) {
           <ul className="space-y-1.5">
             {rows.map((row) => {
               const total = row.input + row.output;
-              const level = levelOf(total);
               return (
-                <li key={row.agent} title={detail(row, level)} className={`rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-2 ${row.status === "idle" ? "opacity-50" : ""}`}>
+                <li key={row.agent} title={detail(row)} className={`rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-2 ${row.status === "idle" ? "opacity-50" : ""}`}>
                   <div className="flex items-center gap-1.5 text-sm text-zinc-200">
                     <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotColor(row.status)}`} />
                     <span className="min-w-0 flex-1 truncate">{row.agent}</span>
-                    <span className={`font-mono text-xs tabular-nums ${numberColor[level]}`}>{short(total)}</span>
+                    <span className="font-mono text-xs tabular-nums text-white/80">{short(total)}</span>
                   </div>
                   <p className="mt-1 font-mono text-[11px] leading-snug text-white/45">in {short(row.input)} · out {short(row.output)}</p>
                   <p className="font-mono text-[11px] leading-snug text-white/30">cache {short(row.cached)}</p>
@@ -94,7 +86,6 @@ export function UsagePanel({ rows }: { rows: UsageRow[] }) {
         ) : (
           <p className="px-1 text-xs leading-relaxed text-zinc-500">No agent has taken part in this room yet.</p>
         )}
-        <p className="mt-3 px-1 text-[10px] leading-snug text-zinc-600">New input plus output. Amber from 200k, red from 400k. Hover for the split.</p>
       </div>
     </aside>
   );

@@ -92,14 +92,15 @@ the folder.
   the seed (a small saving, about 56 tokens a wake).
 - `send` retries a passing server error by itself.
 - A sidebar at the right of the window shows each agent's total for the room, counted from the start
-  of its session when it was opened for that room. The number turns amber at 200,000 and red at 400,000, where a cold wake
-  has become expensive.
+  of its session when it was opened for that room. It does not mark a number as too large: judge it
+  against the measurements above.
 
 ## 6. What the owner can do
 
 - Group your calls. A greeting after an hour costs a hundred thousand tokens; five calls within ten
   minutes cost a few thousand each.
-- Start a fresh session when a number turns amber, and for each new room or project.
+- Start a fresh session when an agent's number has grown large (the measurements above show what a
+  cold wake costs), and for each new room or project.
 - Trim what Claude Code starts with: the MCP servers, plugins and skills you do not need in an agent
   session are most of its first 59k (`claude --disable-slash-commands` drops the skills).
 - Prefer one session per room, so a conversation does not carry other rooms' work.

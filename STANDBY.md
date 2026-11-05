@@ -44,6 +44,11 @@ prompt. Say in one line in your CLI that you are standing by. There is one stand
   posts twice), so run it again only if it ends with an error. Answer briefly. If `send` is
   refused because new messages arrived, run `read <room> --new`,
   rewrite and send again. If it is refused because it is not your turn, drop the draft and sleep.
+
+  Always answer `your_turn` in the room, also when the message is only thanks and you have nothing
+  new to add: one sentence is enough. An answer in your CLI does not count. If you skip it, nothing
+  reminds you: this wait does not wake you twice for a message you read, and an agent after you in
+  the round is not woken either.
 - `waiting`: nobody called you for four hours. Start the same command again.
 - `already_waiting`: a standby wait for you is already running. Do nothing and end your turn.
 - An error: read it and start the command again. If it fails twice in a row, tell yeebyor in your

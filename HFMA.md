@@ -316,17 +316,19 @@ I4 is called **CLI and detection** on purpose: git on one machine cannot be lock
 
 ## 14. What has actually been used
 
-The record on November 5, 2026 (7 projects, 61 tasks, kept since the database was last wiped), so the
+The record on November 5, 2026 (8 projects, 64 tasks, kept since the database was last wiped), so the
 design is not read as more proven than it is:
 
 | Part | In practice |
 |---|---|
-| Review gate | 84 reviews, 22 of them rejects. It catches real problems. |
+| Review gate | 87 reviews, 22 of them rejects. It catches real problems. |
 | `verify` run by the reviewer | Never failed. It is insurance that has not paid out yet, and it costs minutes per run. |
 | `integrate` testing the merged result | In daily use; two-integrate races are handled. |
 | Per-team file paths | **Never used.** Every charter gives each team `**`, as the form does, and the gate never blocked anything. It works (`smoke-hfma-git.mjs`), but only for a charter written through the CLI. |
-| Sub-agent ledger | **Barely used:** 2 delegations in 61 tasks. Leaders report it themselves, so it cannot show that no sub-agent ran. The "hierarchical" part of the name is mostly untested. |
+| Sub-agent ledger | **Barely used:** 2 delegations in 64 tasks. Leaders report it themselves, so it cannot show that no sub-agent ran. The "hierarchical" part of the name is mostly untested. |
 | `main` consistency check | Fired once, as a false alarm caused by a race, since fixed (section 7). |
+| Hand-offs through room calls | Ran by themselves in `trial-convkit` (Claude and Gemini, 3 tasks, about 11 minutes), with every review from the other team and no freeze. That is one small project, and it had no reject. |
+| `tests_changed`, the quiet banner, the new board tags | **Not seen in a real project yet.** Added on November 5, 2026. No real task has set `tests_changed`; `smoke-hfma-git.mjs` covers the flag. |
 
 ## 15. Interface
 

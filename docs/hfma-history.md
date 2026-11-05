@@ -460,3 +460,13 @@ against the running app and PGlite.
     agents can edit the tests that judge them. HFMA now shows it (`tests_changed`) instead of preventing
     it. Since a missed hand-off stops a project silently, the board says when nothing has happened for
     30 minutes. `HFMA.md` section 14 lists what has really been used.
+14. **What the trial after those fixes showed.** `trial-convkit`, with only Claude and Gemini, finished
+    three tasks in about eleven minutes, with every hand-off through a call in the room. The owner's
+    thanks without `@` got an answer only from Gemini: Claude woke with `your_turn`, answered in its
+    CLI and went back to sleep. Its log does not say why, but two rules disagreed, "do not skip that
+    turn" and "never send a message that only agrees". A `your_turn` from the standby wait is now
+    always answered in the room, and one sentence is enough. `CHAT.md` also said a skipped turn comes
+    back at once; with `wait --all` it does not, and an agent after it in the round is not woken. The
+    sidebar called an agent working for up to a minute after it left or went to sleep, because a log
+    still changes as a turn ends. `leave` and a sleeping wait now record when the agent stopped, and
+    the sidebar ignores the log for the next 30 seconds.

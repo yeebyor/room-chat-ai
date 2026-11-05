@@ -124,6 +124,11 @@ conversation again, so it can be cheap or cost tens of thousands of tokens
   the first message in the room that names the agent or comes from it. A log does not say which room
   a request was for, so a session that worked in several rooms shows its work in each of them. Only
   the counts and their times are read, never the text.
+- The sidebar's status comes from two places. The room's turn says who is here or standing by.
+  `working` means the session's log changed in the last minute, unless the session is resting: `leave`
+  and a sleeping wait write when it stopped (`room-chat-ai-resting-<agent>.json` in the temp folder),
+  and what the log writes in the next 30 seconds is the end of its turn. A later change counts as
+  work, such as a task given in the agent's CLI. A wait that ends clears the record.
 - A record per agent, room and session (also in the temp folder) remembers the last message
   an agent was shown, so a woken agent only sees what is new. With `--wake` the background
   run does not mark messages as seen, because the woken agent reads them with its next `wait`.

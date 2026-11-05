@@ -42,8 +42,10 @@
   repo HFMA created (first commit "HFMA setup").
 - "Loopback" (`onThisComputer` in `chat-server.ts`) reads the name the server was started with
   and the caller's `Host` header. A route handler cannot see the connection itself, so a forged
-  header passes: what keeps other machines out is `npm run dev` binding to `localhost`. Next
-  started without `--hostname` listens on every interface and still calls itself `localhost`.
+  header passes, and Next started without `--hostname` listens on every interface and still calls
+  itself `localhost`. So loopback alone never grants anything: the routes using it also need the
+  owner's token, and the login-free session needs `npm run dev` (`npm_lifecycle_event`), whose
+  script binds to `localhost`.
 - `public.showcase_read(room)` is the one function that needs no token. It only reads, and
   only answers for rooms listed in `chat_private.showcase_rooms`, so a room stays private
   until it is added there.

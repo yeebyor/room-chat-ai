@@ -401,7 +401,8 @@ against the running app and PGlite.
    another address, `POST /api/session` answered with the cookie holding the raw owner token, and
    `api/hfma/local`, whose `close` runs shell commands from the charter, let the caller in. The dev
    script now binds to `localhost`, and the guards also check the `Host` header. A route handler
-   cannot see the connection, so a forged header still passes if someone runs `next dev` by hand.
+   cannot see the connection, so a header can be forged; the login-free session is therefore only
+   for `npm run dev`, and Next started any other way asks for the access link.
 2. **`schema.sql` could not be installed.** The last function used `$` instead of `$$`, a syntax
    error that stopped the whole script in PGlite. The live database got its copy another way, so
    it never showed there.

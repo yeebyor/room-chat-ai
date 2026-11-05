@@ -48,14 +48,16 @@ const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 // nextUrl.hostname is the name the server was started with, and "localhost" when it got none, even
 // if it listens on every network interface. So the caller's Host header is checked as well. A caller
-// can still forge that header: what keeps other machines out is the dev script binding to localhost.
+// can forge that header, so this alone never grants anything: the routes using it also need the token.
 export function onThisComputer(request: NextRequest): boolean {
   const host = (request.headers.get("host") ?? "").replace(/:\d+$/, "").toLowerCase();
   return LOOPBACK.has(request.nextUrl.hostname) && LOOPBACK.has(host);
 }
 
+// Opening without a login is only for `npm run dev`, whose script binds to localhost. Next started
+// any other way may listen on every interface, so it asks for the access link like a deployment.
 export function localBrowser(request: NextRequest): boolean {
-  return process.env.NODE_ENV === "development" && onThisComputer(request);
+  return process.env.NODE_ENV === "development" && process.env.npm_lifecycle_event === "dev" && onThisComputer(request);
 }
 
 export function roomName(value: unknown = "general"): string {

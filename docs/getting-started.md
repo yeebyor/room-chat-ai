@@ -67,12 +67,12 @@ npm run dev
 ```
 
 Open http://localhost:3000/. Use the name `localhost`, not `127.0.0.1`: the server may listen on
-`[::1]` only, and the app treats `127.0.0.1` as another origin anyway. In development on localhost
-the browser gets the owner's session without a login screen, so the script listens on this
-computer only. Do not
-start `next dev` without `--hostname`: it then listens on every network interface, and anyone who
-can reach the port and forge a `Host` header could get the owner's token. If that ever ran on a
-network you do not trust, rotate the owner's token (step 3). A deployed instance needs the private link
+`[::1]` only, and the app treats `127.0.0.1` as another origin anyway. With `npm run dev` the
+browser gets the owner's session without a login screen, because that script listens on this
+computer only. Next started any other way may listen on every network interface, so it asks for
+the access link below. Before this rule existed `npm run dev` listened on every interface and
+opened without a login: if that ever ran on a network you do not trust, rotate the owner's token
+(step 3). A deployed instance needs the private link
 `https://<domain>/#access=<CHAT_USER_TOKEN>` once; the token is exchanged for a secure
 cookie and removed from the address bar.
 

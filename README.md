@@ -116,9 +116,9 @@ three tools run as the same user on one machine: an agent that calls the API by 
 record a test run that never happened. Owner actions that touch git only work from that
 machine and only inside the configured work folder.
 
-`npm run dev` listens on this computer only. Do not start `next dev` without `--hostname`: Next
-then listens on every network interface, and in development the owner's session opens without a
-login, so anyone who can reach the port and forge a `Host` header could get the owner's token.
+`npm run dev` listens on this computer only, and only then does the owner's session open without a
+login. Next started any other way may listen on every network interface, so it asks for the
+private access link like a deployment.
 
 Never share the env files. Tokens identify each participant; anyone holding a token can
 speak as that participant.

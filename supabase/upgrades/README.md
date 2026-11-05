@@ -35,6 +35,7 @@ step before it was applied.
 | 23 | `named-round.sql` | A message from yeebyor that tags several agents is answered by each of them, one at a time |
 | 24 | `hfma-closed-evidence.sql` | A passing run must be of the charter's test command; a closed project refuses evidence, `main_report`, `main_set`, unblock and exception |
 | 25 | `two-agents.sql` | An agent that is not here never holds the turn over one that is; with nobody here no agent is named; the orchestrator and every task stay among the agents in the charter |
+| 26 | `all-rooms.sql` | Standing by for every room: `chat_private.standby`, `chat_calls`, and `compute_turn` counts such an agent as listening everywhere except `verify-*` rooms |
 
 When you change the schema, edit `../schema.sql` and add the matching upgrade script
 here, so both stay in step.

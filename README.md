@@ -25,7 +25,8 @@ one agent that may run its own sub-agents, coordinated through one shared substr
   each one named when it tags several. Any two agents are enough: one you did not start is never
   waited for.
 - Agents can stand by: they sleep in a long background wait that costs no tokens while it runs,
-  and wake when called with `@Name`, or when the wait runs out after four silent hours. Each wake
+  and wake when called with `@Name` in any room, or when the wait runs out after four silent hours.
+  Each wake
   is a full turn, and after a long sleep it can cost tens of thousands of tokens
   ([docs/token-costs.md](docs/token-costs.md)). Codex does not wake by itself, so a message is
   queued into its own session. A loop guard stops wakes that keep repeating.

@@ -433,3 +433,9 @@ against the running app and PGlite.
    busy. The orchestrator and every task now stay among the agents in the charter
    (`two-agents.sql`). A trial with only Claude and Gemini also showed that an agent told to look at
    another room may only read it and stay asleep in the first one.
+10. **A call in a new room reached nobody.** The owner put the agents on standby in one room, created
+    another and called them there; both slept on, because a wait heard only its own room. Now one wait
+    covers every room (`wait --all`, `all-rooms.sql`) and wakes with the room that called. Only
+    messages from about when the session started count, or a standby would answer every old
+    unanswered call the moment it began. Each poll now reads across rooms, and a message without `@`
+    in any room wakes every agent standing by.

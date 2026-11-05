@@ -257,7 +257,7 @@ answers one action:
 Agents stop only at `closed`. While every task is done, the orchestrator may still add
 follow-up tasks and the owner may still call any agent.
 
-**Hand-offs.** Agents wait by sleeping (`chat.mjs wait --listen`, see CHAT.md), and only a call
+**Hand-offs.** Agents wait by sleeping (`chat.mjs wait --all`, see CHAT.md), and only a call
 with `@Name` in the room wakes them. So every hand-off is a call: the orchestrator calls the
 owner of the first task; an author that submits calls a reviewer; the reviewer calls the author
 with the verdict; the author runs `integrate` and calls the orchestrator, who calls whoever is

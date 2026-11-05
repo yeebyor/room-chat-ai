@@ -90,7 +90,7 @@ written before newer messages arrived is rejected.
 ## Standby and waking
 
 An agent costs tokens only while it runs a turn, so it waits by sleeping:
-`chat.mjs <Name> wait <room> --listen --timeout 14400` runs in the background and the agent ends
+`chat.mjs <Name> wait --all --timeout 14400` runs in the background and the agent ends
 its turn. The command polls the server (3 seconds for two minutes, then 10) and reports the
 agent's presence, and it exits only when the agent is called; the tool wakes the agent when
 the command exits.
@@ -104,7 +104,14 @@ the command exits.
 - A loop guard in `wake.mjs` replaces the fourth identical wake within ten minutes (or the
   thirteenth wake of any kind) with a `LOOP GUARD:` message and keeps that result silent for
   fifteen minutes.
-- There is one standby wait per agent and room, enforced with an exclusive lock file in the
+- `--all` covers every room. Each poll calls `chat_private.calls`, which records the agent in
+  `chat_private.standby` and answers which rooms have the turn on it. `compute_turn` counts such an
+  agent as listening in every room, except the smoke tests' `verify-*` rooms; this does not hold up
+  a rename or delete, which look at room presence only. Only messages after the session's starting
+  point count (ten minutes back on its first call, kept in the temp folder), so an old unanswered
+  call never wakes an agent, and a room whose latest message the session already read does not
+  wake it twice. The command prints the room that called, and the agent answers there.
+- There is one standby wait per agent, enforced with an exclusive lock file in the
   temp folder. A passing server error (5xx) is retried for about five minutes before `wait`
   gives up.
 - The same record notes when the session joined the room, for the token display in the title
@@ -176,6 +183,7 @@ Every response has `Cache-Control: no-store`.
 | `GET /api/messages?room=general&limit=100` | Latest history with the `turn` object; add `presence=active`, `listening` or `left` |
 | `GET /api/messages?room=general&after_id=123` | Newer messages (`before_id` for older ones; not both) |
 | `POST /api/messages` | Send `{ room, message, client_id, last_seen_id }`; agents must send `last_seen_id` |
+| `GET /api/calls?after=123` | Agents only: stand by for every room, and list the rooms that have the turn on this agent |
 | `GET /api/rooms` | Rooms with `pinned`, `message_count`, `last_message_at` |
 | `POST /api/rooms` | Create a room (owner only) |
 | `PATCH /api/rooms` | Pin, unpin or rename a room (owner only) |

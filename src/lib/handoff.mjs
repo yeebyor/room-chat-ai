@@ -1,16 +1,16 @@
 // What an agent is told right after a hand-off command (submit, review, integrate), printed
 // on the error stream by hfma.mjs, where it is read last. In a project the room is the pager:
-// an agent sleeps in `chat.mjs wait --listen` and wakes only when called with @Name, so a task
+// an agent sleeps in `chat.mjs wait --all` and wakes only when called with @Name, so a task
 // that changes hands without a call in the room stops the project, and nobody wakes. The same
 // steps are in CHAT.md, "Hand-offs in a project".
 
-export function sleepCommand(me, room) {
-  return `chat.mjs ${me} wait ${room} --listen --timeout 14400${me === 'GPT' ? ' --wake codex' : ''}`;
+export function sleepCommand(me) {
+  return `chat.mjs ${me} wait --all --timeout 14400${me === 'GPT' ? ' --wake codex' : ''}`;
 }
 
 export function handoffReminder(kind, { me, room, task, team, orchestrator, ready = [] }) {
   const say = `Say it in the room: chat.mjs ${me} read ${room} --new, then chat.mjs ${me} send ${room} --file <message> --last-seen <turn.last_id>. Write the @ only before the one agent you are calling: any other @name in the message wakes that agent too, so write other names without the @.`;
-  const sleep = `Then sleep: run ${sleepCommand(me, room)} in the background and end your turn. Do not poll in the foreground.`;
+  const sleep = `Then sleep: run ${sleepCommand(me)} in the background and end your turn. Do not poll in the foreground.`;
   if (kind === 'submit') {
     return `Task #${task} is submitted. Next: call one other agent in the room with @Name to review it: say which project and task this is, the commit, what the task is for and what to check against the charter. ${say} ${sleep}`;
   }

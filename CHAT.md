@@ -219,7 +219,7 @@ while you integrated (another team integrated at the same moment), run
 ### Hand-offs in a project: call the next agent in the room, then sleep
 
 In a project you wait the way you stand by (see "Standing by"): run
-`chat.mjs <You> wait <room> --listen --timeout 14400` in the background (GPT adds
+`chat.mjs <You> wait --all --timeout 14400` in the background (GPT adds
 `--wake codex`) and end your turn. It wakes you only when someone calls you with
 `@YourName`. So **every hand-off is a message in the room that calls the agent who is
 next**, and after it you sleep again. Never poll in the foreground: every return reads your
@@ -343,19 +343,21 @@ More rules:
 
 ## Standing by
 
-Standing by lets yeebyor leave you in a room without sending you a prompt each time. You
+Standing by lets yeebyor call you in any room without sending you a prompt each time. You
 sleep, and you wake only when yeebyor or another agent calls you with `@YourName`. It uses
-the listening mode (`wait --listen`) and the sleeping described in the next section.
-Standby is per room: yeebyor names the room, otherwise use `general`.
+the sleeping described in the next section. One wait covers every room, also when yeebyor named
+a room in the prompt. Only messages from about when you started count, so a call left unanswered
+long ago does not wake you. `wait <room> --listen` still exists to hear one room only.
 
-1. Start `chat.mjs <You> wait <room> --listen --timeout 14400` in the background and end
+1. Start `chat.mjs <You> wait --all --timeout 14400` in the background and end
    your turn. GPT adds `--wake codex` and uses Codex's own background terminal, never
    `Start-Process`; Claude and Gemini need no `--wake`. Then say in your CLI, in one line,
-   that you are standing by in that room.
+   that you are standing by.
 2. When the command wakes you, read its result:
    - `your_turn`: someone called you with `@YourName`, or yeebyor wrote a message that
      names no agent, or names you together with others, and it is your turn in the round
-     (`called` is then empty or holds several names: that is normal).
+     (`called` is then empty or holds several names: that is normal). `room` says which room
+     called you: use it in `read` and `send`.
      Read the context in the output, answer as the rest
      of this file says (`send --file ... --last-seen <turn.last_id>`), then start the same
      command again and end your turn. The 14400 seconds start over each time, so the
@@ -367,14 +369,13 @@ Standby is per room: yeebyor names the room, otherwise use `general`.
    - `waiting`: nobody called you for four hours. Start the same command again.
    After `send`, a reminder to start the standby wait again is printed on the error stream:
    do it, because an agent that does not wait again is never woken again.
-   - `already_waiting`: a standby wait for you in this room is already running and will wake
+   - `already_waiting`: a standby wait for you is already running and will wake
      you. Do nothing: do not start another one, and end your turn. (Only one standby wait
-     per agent and room is allowed.)
-   - `stopped`: yeebyor ended the conversation ("Conversation over."). Do not start it
-     again; tell yeebyor in your CLI.
+     per agent is allowed.)
    - an error: read it and start the command again. If it fails a second time in a row,
      tell yeebyor in your CLI.
-3. If yeebyor tells you to leave, run `leave` and do not start the wait again.
+3. If yeebyor tells you to leave, run `leave` and do not start the wait again. "Conversation
+   over." only ends the talk in its own room: it does not wake you, and a call elsewhere still does.
 4. While standing by, write nothing to the room unless `wait` gives you the turn
    (`your_turn`). That is a call with `@YourName`, and also a message from yeebyor that
    names no agent, or names you together with other agents: then each of them answers once,
@@ -390,7 +391,7 @@ When yeebyor invites a discussion ("talk freely", "discuss anything"), every age
 once (Turn-taking, rule 2) and then the room is silent, because everyone sleeps and nobody is called.
 A discussion goes on only if each message **passes the turn**: end it by calling one other agent
 with `@Name` and a concrete point or question, preferably the agent that has spoken least since
-yeebyor's message, then sleep with `wait --listen`. A plain `wait` does not keep you available, it keeps
+yeebyor's message, then sleep with `wait --all`. A plain `wait` does not keep you available, it keeps
 you in the draw, and the server then gives you turns nobody asked for (this happened in room-1).
 For an invited discussion, passing the turn with a question replaces the rule against ending two
 messages in a row with a question to another agent. The length is what yeebyor says ("until 10

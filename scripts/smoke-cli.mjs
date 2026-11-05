@@ -10,6 +10,9 @@ import { fileURLToPath } from 'node:url';
 import { handoffReminder } from '../src/lib/handoff.mjs';
 
 const repo = fileURLToPath(new URL('..', import.meta.url));
+// A temp folder of its own, so the test never touches the records of an agent standing by.
+const temp = mkdtempSync(join(tmpdir(), 'cli-temp-'));
+process.env.TEMP = process.env.TMP = process.env.TMPDIR = temp;
 const room = `zz-cli-${process.pid}`;
 const seenFile = join(tmpdir(), `room-chat-ai-seen-GPT-${room}.json`);
 rmSync(seenFile, { force: true });
@@ -29,6 +32,8 @@ const posts = [];
 let lastPresence = null;
 let lastBefore = null;
 let crowded = false;
+const afters = [];
+let standbyCalls = [];
 let failPosts = 0;
 let rejectPosts = false;
 const server = createServer((req, res) => {
@@ -46,6 +51,11 @@ const server = createServer((req, res) => {
     return;
   }
   const query = new URL(req.url, 'http://localhost').searchParams;
+  if (req.url.startsWith('/api/calls')) {
+    afters.push(query.get('after'));
+    res.end(JSON.stringify({ after: '4', calls: standbyCalls }));
+    return;
+  }
   lastPresence = query.get('presence');
   lastBefore = query.get('before_id');
   const list = crowded ? Array.from({ length: 100 }, (_, i) => ({ ...messages[0], id: String(i + 1) })) : messages;
@@ -92,6 +102,24 @@ try {
   assert.equal(lastBefore, '1');
   assert.equal(record().seen, '3', 'paging back does not mark the room as seen');
   crowded = false;
+
+  // wait --all names no room, wakes with the room that called, and keeps where it started.
+  rmSync(seenFile, { force: true });
+  standbyCalls = [];
+  const nobody = await run(['wait', '--all', '--timeout', '1']);
+  assert.equal(nobody.code, 2, 'nobody called: keep waiting');
+  assert.equal(nobody.json().status, 'waiting');
+  assert.equal(afters[0], null, 'the server picks the start on the first call');
+  standbyCalls = [{ room, last_id: '7' }];
+  const woken = (await run(['wait', '--all', '--timeout', '5'])).json();
+  assert.equal(woken.status, 'your_turn');
+  assert.equal(woken.room, room, 'the result says which room called');
+  assert.equal(afters.at(-1), '4', 'later waits keep the start');
+  assert.equal(lastPresence, 'listening');
+  assert.equal(record().seen, '7');
+  assert.equal((await run(['wait', '--all', '--timeout', '1'])).json().status, 'waiting', 'a room already read does not wake it twice');
+  standbyCalls = [];
+  assert.match((await run(['read', room, '--all'])).err, /--all works with wait only/);
 
   // A long wait (ten minutes or more) always listens, even without --listen; a short one stays active.
   await run(['wait', room, '--timeout', '600']);
@@ -143,7 +171,7 @@ try {
   assert.equal(r.seen, null);
   assert.ok(r.joined.at >= joinedAt);
 } finally {
-  rmSync(seenFile, { force: true });
+  rmSync(temp, { recursive: true, force: true });
   server.close();
 }
 
@@ -152,7 +180,7 @@ const base = { me: 'Gemini', room: 'p', task: 225, orchestrator: 'Claude' };
 const submit = handoffReminder('submit', base);
 assert.match(submit, /call one other agent in the room with @Name to review it/);
 assert.match(submit, /chat\.mjs Gemini read p --new/);
-assert.match(submit, /chat\.mjs Gemini wait p --listen --timeout 14400 in the background/);
+assert.match(submit, /chat\.mjs Gemini wait --all --timeout 14400 in the background/);
 assert.doesNotMatch(submit, /--wake codex/);
 assert.match(handoffReminder('approve', { ...base, me: 'GPT', team: 'Gemini' }), /call @Gemini in the room: say it is approved and ask them to run integrate.*--wake codex/);
 assert.match(handoffReminder('reject', { ...base, team: 'Claude' }), /call @Claude in the room: say it was rejected/);
@@ -163,4 +191,4 @@ assert.match(handoffReminder('integrate', { ...base, me: 'Claude', ready: [{ id:
 assert.match(handoffReminder('integrate', { ...base, me: 'Claude', ready: [] }), /every task is done, call @yeebyor to assess/);
 for (const kind of ['submit', 'approve', 'reject', 'integrate']) assert.ok(!handoffReminder(kind, { ...base, team: 'Claude' }).includes(String.fromCharCode(0x2014)), 'no em dash');
 
-console.log(JSON.stringify({ status: 'PASS', checks: 'compact turn, wait --wake leaves messages unseen, delta reads, read --new, read says when older messages exist and pages back, a long wait always listens, send retries a passing server error with the same client_id, join record per session, hand-off reminders' }));
+console.log(JSON.stringify({ status: 'PASS', checks: 'compact turn, wait --wake leaves messages unseen, delta reads, read --new, read says when older messages exist and pages back, wait --all, a long wait always listens, send retries a passing server error with the same client_id, join record per session, hand-off reminders' }));

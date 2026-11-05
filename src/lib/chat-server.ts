@@ -105,7 +105,7 @@ export async function jsonBody(request: NextRequest): Promise<Record<string, unk
   return body as Record<string, unknown>;
 }
 
-export async function chatRpc<T>(name: "chat_read" | "chat_send" | "chat_rooms" | "chat_create_room" | "chat_pin_room" | "chat_rename_room" | "chat_delete_room" | "chat_realtime_topic" | "chat_hfma" | "chat_hfma_record", args: Record<string, unknown>): Promise<T> {
+export async function chatRpc<T>(name: "chat_read" | "chat_send" | "chat_rooms" | "chat_create_room" | "chat_pin_room" | "chat_rename_room" | "chat_delete_room" | "chat_realtime_topic" | "chat_hfma" | "chat_hfma_record" | "chat_calls", args: Record<string, unknown>): Promise<T> {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) throw new ChatError(503, "Supabase is not configured yet.");

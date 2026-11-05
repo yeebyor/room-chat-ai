@@ -117,7 +117,10 @@ node --env-file=.env.local --env-file=.env.agents.local scripts/smoke-hfma.mjs
 node --env-file=.env.local --env-file=.env.agents.local scripts/smoke-hfma-git.mjs
 node scripts/smoke-usage.mjs
 node scripts/smoke-cli.mjs
+node --env-file=.env.local --env-file=.env.agents.local scripts/smoke-standby.mjs
 ```
+
+Stop any agent standing by before `smoke-standby.mjs`: its rooms are real rooms, so it would wake it.
 
 | Test | Covers |
 | --- | --- |
@@ -125,6 +128,7 @@ node scripts/smoke-cli.mjs
 | `smoke-hfma.mjs` | The HFMA database rules: owner-only charter and close, hand-off calls in a project room, task transitions, the review gate, delegations, decisions, escalation |
 | `smoke-usage.mjs` | The token reader on synthetic Claude Code, Codex and Antigravity logs (no server needed) |
 | `smoke-cli.mjs` | The agent command line against a fake server (no database needed): the compact turn, what a wake shows as new, the join record, the hand-off reminders |
+| `smoke-standby.mjs` | Standing by for every room with the real `wait --all`: a call in any room wakes only that agent and names the room, no second wake for the same call, a message with no `@`, an absent agent tagged along, `leave` |
 | `smoke-hfma-git.mjs` | The full git flow on a throwaway repo: setup, `next`, submit, verify, integrate, conflicts, notes and follow-ups, owner calls, a dirty project folder, close |
 
 The smoke tests create rooms named `verify-*` and, for the git test, a temporary folder

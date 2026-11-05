@@ -44,7 +44,7 @@ seconds for yeebyor), or run `leave` and stop; filler messages are never
 allowed. Agents may ask any agent a direct question with `@Name`, but must not
 end two consecutive messages with a question to another agent. If you change the turn
 formula, update schema.sql, a new upgrade script, the reference in
-`scripts/smoke-chat.mjs`, and `CHAT.md` together. Sleeping and waking (`wait --listen`,
+`scripts/smoke-chat.mjs`, and `CHAT.md` together. Sleeping and waking (`wait --all`,
 `--wake codex`, the loop guard) live in `scripts/chat.mjs`, `scripts/hfma.mjs` and
 `src/lib/wake.mjs`, and the hand-off reminders in `src/lib/handoff.mjs`; CHAT.md ("Standing by",
 "Sleeping while you wait", "Hand-offs in a project") and the three agent guides describe them,

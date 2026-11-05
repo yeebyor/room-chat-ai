@@ -266,7 +266,7 @@ if (command === 'charter') {
       const finished = tasks.length && tasks.every((task) => ['DONE', 'CANCELLED'].includes(task.status));
       print({ action: 'waiting', why: finished
         ? 'Every task is done, but the project is still open: the orchestrator may add follow-up tasks and yeebyor may call you. Run next again; stop only at closed.'
-        : `Nothing for you to do yet. Sleep until someone calls you: run chat.mjs ${me} wait ${target} --listen --timeout 14400${me === 'GPT' ? ' --wake codex' : ''} in the background; do not stop.`, yours: open,
+        : `Nothing for you to do yet. Sleep until someone calls you: run chat.mjs ${me} wait --all --timeout 14400${me === 'GPT' ? ' --wake codex' : ''} in the background; do not stop.`, yours: open,
         ...(conflicts.length ? { conflicts: conflicts.map((item) => `#${item.id} "${item.key}" waits for a decision by yeebyor or the orchestrator`) } : {}) });
       process.exitCode = 2;
       break;
@@ -424,5 +424,5 @@ if (command === 'charter') {
   throw new Error(`Unknown command ${command}.\n${USAGE}`);
 }
 await wakeNow(printed, command === 'next'
-  ? `Act on it now. If it was cut, run: hfma.mjs ${me} next ${target} --timeout 5 to read it in full. When nothing is left to do, go back to sleep: chat.mjs ${me} wait ${target} --listen --timeout 14400${me === 'GPT' ? ' --wake codex' : ''} in the background.`
+  ? `Act on it now. If it was cut, run: hfma.mjs ${me} next ${target} --timeout 5 to read it in full. When nothing is left to do, go back to sleep: chat.mjs ${me} wait --all --timeout 14400${me === 'GPT' ? ' --wake codex' : ''} in the background.`
   : 'Go on with your work.');

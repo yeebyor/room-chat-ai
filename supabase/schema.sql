@@ -44,6 +44,16 @@ alter table chat_private.presence enable row level security;
 create policy deny_direct_access on chat_private.presence for all to anon, authenticated using (false) with check (false);
 revoke all on chat_private.presence from public, anon, authenticated;
 
+-- Agents standing by for every room (chat.mjs wait --all). One counts as listening in every room,
+-- so a call anywhere reaches it. It is not presence in a room: it does not hold up a rename or delete.
+create table chat_private.standby (
+  sender text primary key check (sender in ('Claude', 'GPT', 'Gemini')),
+  seen_at timestamptz not null default now()
+);
+alter table chat_private.standby enable row level security;
+create policy deny_direct_access on chat_private.standby for all to anon, authenticated using (false) with check (false);
+revoke all on chat_private.standby from public, anon, authenticated;
+
 -- Realtime is signal only: triggers broadcast "something changed in room X" on a
 -- channel whose name is a random secret handed out only to authenticated
 -- sessions. Message text never travels over Realtime; clients re-read through
@@ -108,6 +118,16 @@ begin
     where room = p_room and not listening and seen_at > now() - interval '90 seconds';
   select coalesce(array_agg(sender), '{}') into v_listening from chat_private.presence
     where room = p_room and listening and seen_at > now() - interval '90 seconds';
+  -- An agent standing by for every room listens here too. The smoke tests' verify-* rooms are left
+  -- out, so a test run neither wakes real agents nor sees them.
+  if p_room !~ '^verify-' then
+    select coalesce(array_agg(distinct agent), '{}') into v_listening from (
+      select unnest(v_listening) as agent
+      union
+      select sender from chat_private.standby
+        where seen_at > now() - interval '90 seconds' and not sender = any(v_present)
+    ) here;
+  end if;
   -- The stop phrase counts only as the whole message, so quoting or negating it
   -- inside a sentence ("don't call it conversation over yet") does not stop anyone.
   if v_last.sender = 'yeebyor' and v_last.message ~* '^\s*conversation\s+over\s*[.!]*\s*$' then
@@ -248,6 +268,7 @@ begin
   -- joined_at restarts when an agent comes back after its presence expired.
   if p_presence = 'left' and v_sender <> 'yeebyor' then
     delete from chat_private.presence where room = p_room and sender = v_sender;
+    delete from chat_private.standby where sender = v_sender;
   elsif p_presence is not null and v_sender <> 'yeebyor' then
     insert into chat_private.presence as p (room, sender, seen_at, listening, joined_at)
       values (p_room, v_sender, now(), p_presence = 'listening', now())
@@ -1565,3 +1586,40 @@ returns jsonb language sql stable security invoker set search_path = '' as $$
 $$;
 revoke execute on function public.showcase_read(text) from public, anon, authenticated;
 grant execute on function public.showcase_read(text) to anon, authenticated;
+
+-- Standing by for every room (chat.mjs wait --all). Reports that this agent is standing by, and
+-- answers which rooms have the turn on it. Only rooms with a message after p_after count, so a call
+-- left unanswered long ago never wakes anyone. A first call has no p_after: it starts ten minutes
+-- back, so a call made just before the agent started still reaches it, and says where it started.
+create function chat_private.calls(p_token text, p_after bigint default null)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v_sender text := chat_private.identify(p_token); v_after bigint; v_calls jsonb;
+begin
+  if v_sender = 'yeebyor' or p_after < 0 then
+    raise sqlstate '22023' using message = 'Only agents stand by, from a valid message ID';
+  end if;
+  insert into chat_private.standby as s (sender, seen_at) values (v_sender, now())
+    on conflict (sender) do update set seen_at = excluded.seen_at;
+  v_after := coalesce(p_after, (select coalesce(max(id), 0) from chat_private.messages
+    where created_at <= now() - interval '10 minutes'));
+  select coalesce(jsonb_agg(jsonb_build_object('room', recent.room, 'last_id', recent.last_id::text) order by recent.last_id), '[]'::jsonb)
+  into v_calls
+  from (
+    select room, max(id) as last_id from chat_private.messages
+    where id > v_after and room !~ '^verify-' group by room
+  ) recent
+  -- An agent's own last message is not a call, even when it is the only agent present and may go on.
+  where chat_private.compute_turn(recent.room)->>'next' = v_sender
+    and (select m.sender from chat_private.messages m where m.id = recent.last_id) <> v_sender;
+  return jsonb_build_object('after', v_after::text, 'calls', v_calls);
+end;
+$$;
+
+create function public.chat_calls(p_token text, p_after bigint default null)
+returns jsonb language sql security invoker set search_path = '' as $$
+  select chat_private.calls(p_token, p_after);
+$$;
+revoke execute on function chat_private.calls(text, bigint) from public, anon, authenticated;
+revoke execute on function public.chat_calls(text, bigint) from public, anon, authenticated;
+grant execute on function chat_private.calls(text, bigint) to anon, authenticated;
+grant execute on function public.chat_calls(text, bigint) to anon, authenticated;

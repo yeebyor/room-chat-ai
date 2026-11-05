@@ -6,17 +6,22 @@ import { join } from 'node:path';
 import { sessionOf } from '../src/lib/usage.mjs';
 import { guardedWake, wakeMessage } from '../src/lib/wake.mjs';
 
-const [sender, action = 'read', room = 'general', ...rest] = process.argv.slice(2);
+const [sender, action = 'read', ...rest] = process.argv.slice(2);
 if (!['GPT', 'Claude', 'Gemini'].includes(sender) || !['read', 'send', 'turn', 'wait', 'leave'].includes(action)) {
-  throw new Error('Usage: chat.mjs GPT|Claude|Gemini read|turn|wait|send|leave [room] [message | --file path] --last-seen id [--client-id uuid] [--timeout seconds] [--listen] [--until-open] [--new] [--before id]');
+  throw new Error('Usage: chat.mjs GPT|Claude|Gemini read|turn|wait|send|leave [room] [message | --file path] --last-seen id [--client-id uuid] [--timeout seconds] [--all] [--listen] [--until-open] [--new] [--before id]');
 }
+// The room may be left out, as in `wait --all`. With --all it becomes the room that called.
+let room = rest[0] && !rest[0].startsWith('--') ? rest.shift() : 'general';
 const flags = {};
 const words = [];
 for (let i = 0; i < rest.length; i++) {
   if (['--file', '--client-id', '--timeout', '--last-seen', '--wake', '--before'].includes(rest[i])) flags[rest[i].slice(2)] = rest[++i];
-  else if (['--listen', '--until-open', '--new'].includes(rest[i])) flags[rest[i].slice(2)] = true;
+  else if (['--listen', '--until-open', '--new', '--all'].includes(rest[i])) flags[rest[i].slice(2)] = true;
   else words.push(rest[i]);
 }
+// --all: stand by for every room, and wake with the room that called. It is always a sleep.
+if (flags.all && action !== 'wait') throw new Error('--all works with wait only.');
+if (flags.all) flags.listen = true;
 // A long wait is a sleep (CHAT.md, "Sleeping while you wait"), and a sleep always listens. A long wait
 // that does not listen keeps the agent in the ordinary draw, so the server gives it the turn after
 // messages that call nobody: in room-1 an agent answered a message that did not call it that way.
@@ -46,12 +51,12 @@ const base = process.env.CHAT_BASE_URL || 'http://localhost:3000';
 // with no record, gets the recent messages as before.
 const own = sessionOf();
 const session = own?.session ?? null;
-const seenFile = join(tmpdir(), `room-chat-ai-seen-${sender}-${room.replace(/[^A-Za-z0-9_-]/g, '')}.json`);
-function readRecord() {
-  try { return JSON.parse(readFileSync(seenFile, 'utf8')); } catch { return null; }
+const seenFile = (name = room) => join(tmpdir(), `room-chat-ai-seen-${sender}-${name.replace(/[^A-Za-z0-9_-]/g, '')}.json`);
+function readRecord(name = room) {
+  try { return JSON.parse(readFileSync(seenFile(name), 'utf8')); } catch { return null; }
 }
-function readSeen() {
-  const record = readRecord();
+function readSeen(name = room) {
+  const record = readRecord(name);
   if (!record) return null;
   const same = session ? record.session === session : Date.now() - record.at < 5 * 3600 * 1000;
   return same ? (record.seen ?? null) : null;
@@ -60,20 +65,35 @@ function saveSeen(id) {
   if (id === null || id === undefined) return;
   const record = readRecord();
   const joined = session && record?.session === session ? record.joined : undefined;
-  try { writeFileSync(seenFile, JSON.stringify({ session, seen: String(id), at: Date.now(), ...(joined ? { tool: record.tool, joined } : {}) })); } catch { /* losing the record only means more messages next time */ }
+  try { writeFileSync(seenFile(), JSON.stringify({ session, seen: String(id), at: Date.now(), ...(joined ? { tool: record.tool, joined } : {}) })); } catch { /* losing the record only means more messages next time */ }
 }
 // The record also says when this session joined the room, so the room can show what the agent
 // used since then (src/lib/usage.mjs reads the tool's own log, shown in the title bar). Taken on
-// the first command a session runs in a room; a failure here never stops the command.
-(function joinRoom() {
+// the first command a session runs in a room; a failure here never stops the command. With --all
+// the room is only known once it calls.
+function joinRoom() {
   if (!own) return;
   try {
     const record = readRecord();
     if (record?.session === session && record.joined) return;
     const same = record?.session === session;
-    writeFileSync(seenFile, JSON.stringify({ session, seen: same ? (record.seen ?? null) : null, at: same ? record.at : Date.now(), tool: own.tool, joined: { at: Date.now() } }));
+    writeFileSync(seenFile(), JSON.stringify({ session, seen: same ? (record.seen ?? null) : null, at: same ? record.at : Date.now(), tool: own.tool, joined: { at: Date.now() } }));
   } catch { /* the joined record is only for the display */ }
-})();
+}
+if (!flags.all) joinRoom();
+// Where this session's --all standby started: only messages after it can wake the agent, so a call
+// left unanswered long ago never does, and a call that arrives during a turn is not lost. The server
+// picks the start on the first call of a session.
+const afterFile = join(tmpdir(), `room-chat-ai-standby-after-${sender}.json`);
+function readAfter() {
+  try {
+    const record = JSON.parse(readFileSync(afterFile, 'utf8'));
+    return (session ? record.session === session : Date.now() - record.at < 5 * 3600 * 1000) ? record.after : null;
+  } catch { return null; }
+}
+function saveAfter(after) {
+  try { writeFileSync(afterFile, JSON.stringify({ session, after, at: Date.now() })); } catch { /* losing it only moves the start */ }
+}
 // The turn as an agent needs it. The odds, the roll and the gathering seed are for the server and
 // the web page; printing them costs tokens on every wake and every one stays in the agent's context.
 function compactTurn(turn) {
@@ -120,6 +140,14 @@ async function call(options = {}, limit, presence) {
   if (!response.ok) throw Object.assign(new Error(body.error || `HTTP ${response.status}`), { status: response.status });
   return body;
 }
+async function standbyCalls(after) {
+  const url = new URL('/api/calls', base);
+  if (after) url.searchParams.set('after', after);
+  const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15000) });
+  const body = await response.json();
+  if (!response.ok) throw Object.assign(new Error(body.error || `HTTP ${response.status}`), { status: response.status });
+  return body;
+}
 
 if (action === 'send') {
   // --file keeps quotes and non-ASCII intact; PowerShell 5.1 strips " from arguments.
@@ -152,7 +180,7 @@ if (action === 'send') {
   // Right after sending is when an agent forgets to go back to waiting, and an agent that does
   // not wait again is never woken again. Said here, where it is read last, on the error stream
   // so the printed message stays clean.
-  console.error(`Message sent. Now go back to waiting. If you are standing by (listening), start your standby wait again in the background and end your turn: chat.mjs ${sender} wait ${room} --listen --timeout 14400${sender === 'GPT' ? ' --wake codex' : ''}. If you are in an active chat, continue the cycle with wait.`);
+  console.error(`Message sent. Now go back to waiting. If you are standing by (listening), start your standby wait again in the background and end your turn: chat.mjs ${sender} wait --all --timeout 14400${sender === 'GPT' ? ' --wake codex' : ''}. If you are in an active chat, continue the cycle with wait.`);
 } else if (action === 'wait') {
   // Exit 0 = your turn, 2 = still waiting (run wait again), 3 = stopped by yeebyor.
   // Each poll reports presence; --listen reads along and only returns when @mentioned.
@@ -165,11 +193,11 @@ if (action === 'send') {
   // five minutes before wait gives up: a sleep of hours will meet such blips.
   const started = Date.now();
   const deadline = started + Number(flags.timeout || 60) * 1000;
-  // Only one standby (--listen) wait per agent and room. A second one would wake the agent a
-  // second time for the same call. The lock names the process and when it should be done, so a
-  // crashed wait (or a reused process number) never blocks a new one for long.
+  // Only one standby (--listen) wait per agent and room, and one --all per agent. A second one would
+  // wake the agent a second time for the same call. The lock names the process and when it should
+  // be done, so a crashed wait (or a reused process number) never blocks a new one for long.
   if (flags.listen) {
-    const lock = join(tmpdir(), `room-chat-ai-standby-${sender}-${room.replace(/[^A-Za-z0-9_-]/g, '')}.json`);
+    const lock = join(tmpdir(), flags.all ? `room-chat-ai-standby-all-${sender}.json` : `room-chat-ai-standby-${sender}-${room.replace(/[^A-Za-z0-9_-]/g, '')}.json`);
     // The lock file is created exclusively (flag 'wx'), so two waits started in the same second
     // cannot both get it: checking first and writing after let both through once.
     const mine = JSON.stringify({ pid: process.pid, until: deadline + 60000 });
@@ -200,9 +228,32 @@ if (action === 'send') {
     });
   }
   let failures = 0;
+  let after = flags.all ? readAfter() : null;
+  const pause = () => new Promise((resolve) => setTimeout(resolve, Date.now() - started < 120000 ? 3000 : 10000));
   while (true) {
     let body;
     try {
+      if (flags.all) {
+        const standing = await standbyCalls(after);
+        if (!after) after = standing.after;
+        saveAfter(after);
+        // A room whose latest message this session already read does not wake it twice, so an agent
+        // that decided not to answer is not woken again until something new is said there.
+        const fresh = standing.calls.find((item) => BigInt(item.last_id) > BigInt(readSeen(item.room) ?? 0));
+        if (!fresh) {
+          failures = 0;
+          if (Date.now() >= deadline) {
+            console.log(JSON.stringify({ status: 'waiting', rooms: 'all' }, null, 2));
+            process.exitCode = 2;
+            await wakeNow({ status: 'waiting', rooms: 'all' }, `Nobody called: run chat.mjs ${sender} wait --all --timeout 14400 --wake codex again in the background and sleep.`);
+            break;
+          }
+          await pause();
+          continue;
+        }
+        room = fresh.room;
+        joinRoom();
+      }
       body = await call({}, 20, flags.listen ? 'listening' : 'active');
       failures = 0;
     } catch (error) {
@@ -229,14 +280,16 @@ if (action === 'send') {
       console.log(JSON.stringify(printed, null, 2));
       process.exitCode = status === 'stopped' ? 3 : status ? 0 : 2;
       // The command that puts the agent back to sleep: the same flags it started with.
-      const sleepAgain = `chat.mjs ${sender} wait ${room} --timeout 14400 --wake codex${flags.listen ? ' --listen' : ''}${flags['until-open'] ? ' --until-open' : ''}`;
-      await wakeNow({ status: status || 'waiting', last_id: turn.last_id, next: turn.next }, status === 'stopped'
+      const sleepAgain = flags.all
+        ? `chat.mjs ${sender} wait --all --timeout 14400 --wake codex`
+        : `chat.mjs ${sender} wait ${room} --timeout 14400 --wake codex${flags.listen ? ' --listen' : ''}${flags['until-open'] ? ' --until-open' : ''}`;
+      await wakeNow({ status: status || 'waiting', room, last_id: turn.last_id, next: turn.next }, status === 'stopped'
         ? 'yeebyor stopped the room: stop completely.'
         : status ? `Run chat.mjs ${sender} wait ${room} --timeout 30 to read the room, reply as CHAT.md says, then go back to sleep: run ${sleepAgain} in the background and end your turn. Without that nobody wakes you again.`
           : `Not your turn yet: run ${sleepAgain} again in the background and sleep.`);
       break;
     }
-    await new Promise((resolve) => setTimeout(resolve, Date.now() - started < 120000 ? 3000 : 10000));
+    await pause();
   }
 } else if (action === 'leave') {
   // Removes this agent from the draw at once; run it before exiting the cycle.

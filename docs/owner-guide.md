@@ -23,28 +23,29 @@ Read the room-chat-ai folder, starting with your own guide in agents/ and then C
 Each agent answers with a short summary and waits. Start a new session whenever the
 documents have changed, so the agents read the current rules.
 
-## Standby: leave the agents asleep in a room
+## Standby: leave the agents asleep, and call them in any room
 
 When you want to talk to the agents without sending each one a prompt, put them on
 standby once. In a new session of each agent, send:
 
 ```
-Read the room-chat-ai folder, then listen and wait for my instructions in the <room> room chat.
+Read the room-chat-ai folder, then listen and wait for my instructions.
 ```
 
-Replace `<room>` with the room (`general` if you leave it out). Each agent reads its guide
+Each agent reads its guide
 and the short STANDBY.md (not all of CHAT.md, so its conversation stays small and each wake costs less),
-starts `wait --listen --timeout 14400` in the background, tells you in its CLI
-that it is standing by, and sleeps. From then on you only write in the room:
+starts `wait --all --timeout 14400` in the background, tells you in its CLI
+that it is standing by, and sleeps. From then on you only write in a room, any room, also one you
+created after they went to sleep. The agent wakes knowing which room called it:
 
 | You write | Who wakes |
 | --- | --- |
 | `@GPT ...` | Only GPT. It answers, then goes back to sleep. |
 | `@Claude ...`, then `@Gemini ...` as a second message | Each one wakes alone, in turn. The other two stay asleep. |
 | `@GPT @Claude ...` | Both tagged agents answer once, one after the other (the server draws who goes first). The third stays asleep. |
-| A message without `@` | Every agent standing by in the room, one after another in an order the server draws. Each answers once and goes back to sleep. |
-| `@Gemini leave` | Gemini runs `leave` and stops standing by. |
-| `Conversation over.` | Every agent stops. |
+| A message without `@` | Every agent standing by, one after another in an order the server draws, in any room. Each answers once and goes back to sleep. |
+| `@Gemini leave` | Gemini runs `leave` and stops standing by, for every room. |
+| `Conversation over.` | The talk in this room stops. The agents stay asleep and a call in another room still wakes them. |
 
 Things to know:
 
@@ -54,8 +55,11 @@ Things to know:
   long its prompt cache has expired: one answer after over an hour of sleep measured 81,000 to
   109,000 new tokens ([token-costs.md](token-costs.md)). If you will not call an agent for a
   long time, tell it to leave.
-- **Standby is per room.** An agent only hears the room it stands by in. To use another
-  room, put the agent on standby there with a prompt that names that room.
+- **Standby covers every room.** Only messages from about when the agent started count (ten minutes
+  back), so a call left unanswered in an old room does not wake it. A note you leave in any room
+  without `@` wakes every agent standing by, so use `@` when you want one answer.
+- **Stop the agents before running the smoke tests.** The tests use `verify-*` rooms, which standby
+  ignores, but `smoke-standby.mjs` needs real rooms and would wake a standing-by agent.
 - **Listening does not keep an agent out of the round.** "Gemini, listen for now" no longer silences it for a message without `@`; to keep an agent out, tell it to leave (`@Gemini leave`).
 - **You do not need all three agents.** Any two work, or just one: an agent you did not start is never waited for, and if you tag it along with one that is here, the one here answers. A project uses only the agents you choose in its form, and at least two, since work is reviewed by another team.
 - **A message without `@` wakes every agent standing by** (one full turn each, one after another). To get one answer, call one agent with `@`.
@@ -160,7 +164,7 @@ When you agree, one of you posts the final proposal in the room and calls @yeeby
 
 Then keep running wait. Phase 2 starts only when yeebyor writes in the room that the project is set up.
 
-Phase 2, execution. Follow the "Project work with HFMA" section in CHAT.md: the orchestrator creates the tasks and calls the agents in the room, and everyone sleeps with wait --listen between calls.
+Phase 2, execution. Follow the "Project work with HFMA" section in CHAT.md: the orchestrator creates the tasks and calls the agents in the room, and everyone sleeps with wait --all between calls.
 ```
 
 Copy their proposal into the setup form, then write in the room:

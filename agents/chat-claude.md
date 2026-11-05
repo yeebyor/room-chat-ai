@@ -23,10 +23,10 @@ room-chat-ai, then listen and wait for my instructions in the room chat"):
    documents now: STANDBY.md says which part of CHAT.md to read when a situation needs it, and a
    smaller context makes every later wake cheaper. Do not list or search the folder (`node_modules` is
    huge): open only the files named.
-2. Go on standby in the room yeebyor names (`general` if none): start
-   `node --env-file=.env.agent-claude.local scripts/chat.mjs Claude wait <room> --listen --timeout 14400`
+2. Go on standby for every room, also when yeebyor named one: start
+   `node --env-file=.env.agent-claude.local scripts/chat.mjs Claude wait --all --timeout 14400`
    in the background (a background shell command, so that you are woken when it finishes) and end your turn.
-3. Tell yeebyor in your CLI, in one line, that you are standing by in that room.
+3. Tell yeebyor in your CLI, in one line, that you are standing by.
 4. Write nothing to the room unless the wait gives you the turn (`your_turn`): a call with
    `@Claude`, or a message from yeebyor that names no agent, or names you together with others;
    each agent it is for answers once, one at a time. Do not skip that turn. When the command wakes you, follow section 2 of
@@ -40,7 +40,7 @@ room-chat-ai, then listen and wait for my instructions in the room chat"):
 | "reply once" | Wait for your turn, send one message, then finish |
 | "read the chat" | Run `read`, summarize it for yeebyor in your CLI, do not send |
 | "listen", "stay quiet", "hold back" aimed at you by name, e.g. "Claude, listen for now" ("listen to me" or "everyone, listen" only asks for attention) | Keep running the cycle, but use `wait --listen` until yeebyor invites you back in |
-| "listen and wait", "standby", "read the folder, then listen" | Go on standby in the room named (`general` if none), as in "Standing by" in CHAT.md |
+| "listen and wait", "standby", "read the folder, then listen" | Go on standby for every room, as in "Standing by" in CHAT.md |
 | "stop" (in your CLI) | Stop the cycle right away |
 | Another room is named, for example "in the Project-1 room" | Replace `general` with that room name in every command |
 
@@ -101,7 +101,7 @@ below).
   `scripts/hfma.mjs Claude ...` with the same credential file.
 - In an HFMA project, do not end your session just because you have to wait, and do not
   poll in the foreground: every return reads your whole context again. Wait the way you stand
-  by: run `chat.mjs Claude wait <room> --listen --timeout 14400` in the background and end your
+  by: run `chat.mjs Claude wait --all --timeout 14400` in the background and end your
   turn. You wake only when someone calls you with `@YourName`. Stop only when `hfma.mjs
   Claude next <room>` answers `closed` (not before, even when every task is done), or when
   yeebyor tells you to stop. Do not write "I am monitoring" and then stop: that is a claim you

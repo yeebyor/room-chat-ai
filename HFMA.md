@@ -102,7 +102,8 @@ the setup form, the charter editor, or `hfma.mjs charter <room> --file`.
   only ever marked met by the owner.
 - `ownership` lists the file paths each team may change. The form gives every team `**`;
   per-team paths are set through the CLI.
-- A new version keeps tasks in progress on the version they were claimed under; closing is
+- A new version applies at once. Tasks in progress are tested with the latest test command from
+  their next run on; `claim_version` only records which version a claim started under. Closing is
   always against the latest version (A7).
 
 ## 5. Tasks
@@ -133,7 +134,7 @@ From TODO, CLAIMED, REVIEW or APPROVED:  --cancel--> CANCELLED
 | `claim` | the task's team | `TODO`, every dependency `DONE` |
 | `heartbeat` | claim holder | Active generation |
 | `submit` | claim holder | Active generation, no open delegation, a passing `submit` run by the holder on that commit |
-| `approve` / `reject` | another team | `REVIEW`, the candidate commit, and for approve the reviewer's own passing `verify` run |
+| `approve` / `reject` | another team in the charter | `REVIEW`, the candidate commit, and for approve the reviewer's own passing `verify` run |
 | `integrate` | claim holder, orchestrator | `APPROVED`, the approved commit, a passing run on the merged result, and `main` unchanged since the merge was made |
 | `note` | any agent in the project, owner | The task is not `CANCELLED` |
 | `cancel`, `reassign` | orchestrator, owner | A reason |
@@ -167,8 +168,17 @@ Evidence is always produced by the CLI.
 | `integrate` | integrating team | Recording the merge |
 | `close` | owner (server) | Each `command` criterion at close |
 
+A run has one caller at a time: a second run by the same caller in the same project is refused while
+the first holds the scratch checkout. Test code is the agents' code, so it runs without the tokens
+of whoever started it.
+
 A passing run proves the tests ran, not that they are right. That is why an approval needs
 notes saying what the reviewer checked and which criteria it covers (A4).
+
+**The tests can change.** `check.mjs` and the tests are part of the project, so a task can weaken what
+judges it, by mistake or to get to green. HFMA does not prevent this. It makes it visible: `submit`
+records which existing test files the commit changes or deletes (adding tests is not flagged), and
+`next`, `verify`, the board and the close panel all say so. The reviewer and the owner decide.
 
 The database accepts a run only if it passed, on that commit, by that actor, with the charter's
 test command. It takes the exit code as sent: an agent calling the API by hand could record a
@@ -195,6 +205,11 @@ and checks that no tracked file in the project folder is changed or staged (untr
 files such as test caches do not count). A mismatch marks the project inconsistent and
 freezes integration until the owner checks and accepts the current `main`, which is
 refused while the project folder has uncommitted changes.
+
+A merge is recorded just before the folder moves, so for a moment `main` is behind the record. That is
+not a mismatch: when the recorded hash descends from `main`, the command finishes the fast-forward
+itself, which also recovers an `integrate` that died in between. If an owner moves `main` back on
+purpose, the next command moves it forward again, so record that with `main-set` at once.
 
 ## 8. Escalation
 
@@ -265,7 +280,8 @@ with the verdict; the author runs `integrate` and calls the orchestrator, who ca
 next, and calls `@yeebyor` when every task is done. Task status stays the only truth about the
 work; the room is the pager. The server accepts such a call from an agent that does not hold
 the turn, in a room with a charter. These calls are a convention, not an invariant: a missing
-call stops the project but cannot corrupt it.
+call stops the project but cannot corrupt it. Nothing restarts it by itself. After 30 minutes without
+an event or a message, the board tells the owner, and says who to call.
 
 ## 12. Closing and the record
 
@@ -298,7 +314,21 @@ charter version, and each commit's subject, author and changed files read from g
 
 I4 is called **CLI and detection** on purpose: git on one machine cannot be locked.
 
-## 14. Interface
+## 14. What has actually been used
+
+The record on November 5, 2026 (7 projects, 61 tasks, kept since the database was last wiped), so the
+design is not read as more proven than it is:
+
+| Part | In practice |
+|---|---|
+| Review gate | 84 reviews, 22 of them rejects. It catches real problems. |
+| `verify` run by the reviewer | Never failed. It is insurance that has not paid out yet, and it costs minutes per run. |
+| `integrate` testing the merged result | In daily use; two-integrate races are handled. |
+| Per-team file paths | **Never used.** Every charter gives each team `**`, as the form does, and the gate never blocked anything. It works (`smoke-hfma-git.mjs`), but only for a charter written through the CLI. |
+| Sub-agent ledger | **Barely used:** 2 delegations in 61 tasks. Leaders report it themselves, so it cannot show that no sub-agent ran. The "hierarchical" part of the name is mostly untested. |
+| `main` consistency check | Fired once, as a false alarm caused by a race, since fixed (section 7). |
+
+## 15. Interface
 
 - One RPC `chat_hfma(token, op, args)` behind `POST /api/hfma`. Agents use
   `scripts/hfma.mjs`, never the route directly.

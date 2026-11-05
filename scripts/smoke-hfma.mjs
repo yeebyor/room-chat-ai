@@ -68,6 +68,16 @@ await ok('yeebyor', 'charter_set', { room: pair, charter: pairCharter });
 await refused(422, /GPT is not in this project/, 'Claude', 'task_create', { room: pair, title: 'Untuk GPT', team: 'GPT' });
 const pairTask = (await ok('Claude', 'task_create', { room: pair, title: 'Untuk Gemini', team: 'Gemini' })).id;
 await refused(422, /GPT is not in this project/, 'Claude', 'task_reassign', { task: pairTask, reason: 'Pindah.', team: 'GPT' });
+// An agent outside the project cannot review in it.
+await ok('Gemini', 'task_claim', { task: pairTask });
+const pairCommit = hash();
+const pairRun = (await ok('Gemini', 'evidence_add', { room: pair, task: pairTask, kind: 'submit', commit: pairCommit, command: 'npm test', exit_code: 0, timed_out: false, duration_ms: 1, output: 'ok' })).evidence;
+// It also records which existing tests the commit changes, for the reviewer and the owner.
+const pairSubmitted = await ok('Gemini', 'task_submit', { task: pairTask, generation: 1, commit: pairCommit, evidence: pairRun, tests_changed: 'check.mjs' });
+assert.equal(pairSubmitted.tests_changed, 'check.mjs');
+await refused(403, /GPT is not in this project/, 'GPT', 'task_review', { task: pairTask, verdict: 'reject', commit: pairCommit, notes: 'Dari luar.' });
+assert.equal((await ok('Claude', 'task_review', { task: pairTask, verdict: 'reject', commit: pairCommit, notes: 'Dari dalam.' })).status, 'CLAIMED');
+assert.ok(typeof (await ok('yeebyor', 'board', { room: pair })).quiet_minutes === 'number', 'The board says how long the project has been quiet');
 
 // Hand-off: in a project room an agent may call another agent with @name without holding the
 // turn (the other agents only listen, so nobody holds it); without a charter it is refused.
@@ -156,6 +166,10 @@ assert.equal((await ok('Gemini', 'charter_get', { room })).project.main_hash, m1
 
 // A main branch that moved outside integrate freezes integration until yeebyor checks it.
 assert.equal((await ok('Gemini', 'main_report', { room, main_hash: m1 })).consistent, true);
+// A comparison made against a hash that has moved on says nothing: ask again, do not freeze.
+const asked = await ok('Gemini', 'main_report', { room, main_hash: h1, recorded: h1 });
+assert.equal(asked.retry, true);
+assert.equal((await ok('Gemini', 'charter_get', { room })).project.inconsistent, false, 'An integrate in progress is not a moved main');
 const stray = hash();
 assert.equal((await ok('Gemini', 'main_report', { room, main_hash: stray })).consistent, false);
 const c = (await ok('Claude', 'task_create', { room, title: 'Modul c', team: 'Gemini' })).id;
@@ -261,4 +275,4 @@ if (!process.env.KEEP_VERIFY_ROOMS) {
     assert.equal(removed.status, 200, `cleanup of ${name}: ${await removed.text()}`);
   }
 }
-console.log(JSON.stringify({ status: 'PASS', room, checks: 'I1 charter and close owner-only, a project of two agents, hand-off call in a project room, decisions and conflicts, I2 transitions/roles/generations, I3 review gate, evidence bound to the charter test command, a closed project stays closed, I5 open delegations, I6 events, main consistency, escalation, private tables' }));
+console.log(JSON.stringify({ status: 'PASS', room, checks: 'I1 charter and close owner-only, a project of two agents, review only from inside the project, changed tests recorded, no false freeze while main moves, hand-off call in a project room, decisions and conflicts, I2 transitions/roles/generations, I3 review gate, evidence bound to the charter test command, a closed project stays closed, I5 open delegations, I6 events, main consistency, escalation, private tables' }));

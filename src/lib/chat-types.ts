@@ -86,6 +86,8 @@ export interface HfmaTask {
   block_reason: string | null;
   exception: boolean;
   stale: boolean | null;
+  // Existing test files the submitted commit changes or deletes, if any.
+  tests_changed: string | null;
 }
 
 export interface HfmaDecision {
@@ -111,5 +113,7 @@ export interface HfmaBoard {
   criteria?: HfmaCriterion[];
   agents?: Agent[];
   project: { main_hash: string | null; inconsistent: boolean | null; closed_at: string | null };
+  // Minutes since the last project event or room message; null when there has been none.
+  quiet_minutes: number | null;
   tasks: HfmaTask[];
 }

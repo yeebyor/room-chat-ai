@@ -611,6 +611,7 @@ create table chat_private.tasks (
   rejections integer not null default 0,
   integrate_failures integer not null default 0,
   exception boolean not null default false,
+  tests_changed text check (char_length(tests_changed) <= 2000),
   created_by text not null,
   created_at timestamptz not null default now()
 );
@@ -986,6 +987,11 @@ begin
     if v_project.main_hash is null then
       perform chat_private.hfma_fail('missing', 'yeebyor has not recorded the initial main hash yet (hfma.mjs setup).');
     end if;
+    -- "recorded" is the hash the CLI compared with git. If an integrate recorded a new one since,
+    -- that comparison says nothing: ask again rather than freeze the project on a false alarm.
+    if p_args ? 'recorded' and p_args->>'recorded' is distinct from v_project.main_hash then
+      return jsonb_build_object('room', v_room, 'consistent', false, 'retry', true, 'main_hash', v_project.main_hash);
+    end if;
     -- "dirty" lists tracked files changed or staged in the project folder itself,
     -- which only integrate may touch.
     v_reason := case when p_args ? 'dirty' then chat_private.hfma_text(p_args, 'dirty', 2000) end;
@@ -1098,9 +1104,12 @@ begin
     if exists (select 1 from chat_private.delegations where task_id = v_task.id and status = 'open') then
       perform chat_private.hfma_fail('delegation', 'A sub-agent delegation is still open. Close it first with hfma.mjs child.');
     end if;
-    update chat_private.tasks set status = 'REVIEW', candidate = v_commit, heartbeat_at = now() where id = v_task.id;
+    -- tests_changed: existing test files this commit changes or deletes, as the CLI found them.
+    v_reason := case when p_args ? 'tests_changed' then chat_private.hfma_text(p_args, 'tests_changed', 2000) end;
+    update chat_private.tasks set status = 'REVIEW', candidate = v_commit, heartbeat_at = now(), tests_changed = v_reason
+      where id = v_task.id;
     perform chat_private.hfma_event(v_task.room, v_task.id, v_sender, 'submit', v_task.generation, v_commit,
-      (p_args->>'evidence')::bigint);
+      (p_args->>'evidence')::bigint, case when v_reason is not null then 'Changes existing tests: ' || v_reason end);
     return chat_private.hfma_task_json(v_task.id);
 
   when 'task_review' then
@@ -1108,6 +1117,9 @@ begin
     perform chat_private.hfma_open(v_task.room);
     if v_sender = v_task.team then
       perform chat_private.hfma_fail('forbidden', 'The authoring team may not review its own task.');
+    end if;
+    if v_sender <> 'yeebyor' and not ((chat_private.hfma_charter(v_task.room)).body->'ownership') ? v_sender then
+      perform chat_private.hfma_fail('forbidden', format('%s is not in this project, so it cannot review here.', v_sender));
     end if;
     if v_task.status <> 'REVIEW' then
       perform chat_private.hfma_fail('status', format('The task status is %s, not REVIEW.', v_task.status));
@@ -1398,6 +1410,10 @@ begin
     return jsonb_build_object('room', v_room,
       'charter_version', (select max(version) from chat_private.charters where room = v_room),
       'project', to_jsonb(v_project) - 'room',
+      -- Minutes since anything happened: a call nobody made leaves no error, only silence.
+      'quiet_minutes', (select floor(extract(epoch from now() - greatest(
+          (select max(x.at) from chat_private.task_events x where x.room = v_room),
+          (select max(m.created_at) from chat_private.messages m where m.room = v_room))) / 60)::integer),
       'tasks', coalesce((select jsonb_agg(chat_private.hfma_task_json(t.id) order by t.id)
         from chat_private.tasks t where t.room = v_room), '[]'),
       'decisions', coalesce((select jsonb_agg(to_jsonb(d) order by d.id)

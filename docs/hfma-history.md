@@ -449,3 +449,14 @@ against the running app and PGlite.
     answering in every room, the sidebar's totals are the session's, so it now says so. It also shows
     what each agent is doing now. `npm test` runs everything but Realtime on an in-memory Postgres,
     and GitHub runs it on every push, so a schema that cannot install no longer goes unnoticed.
+13. **What the record showed about HFMA itself.** The only `main_inconsistent` event ever recorded was
+    a false alarm: in research-2, Gemini's command checked 183 milliseconds after Claude's integrate
+    recorded a merge and before the folder moved, which froze the project. A recorded merge that has
+    not reached the folder is now finished by whoever notices it, and `main_report` asks again when
+    the record moved during the comparison (`hfma-integrity.sql`). Tests ran with the caller's tokens in
+    their environment, the owner's at close; they no longer do, and no recorded output had named them.
+    An agent outside the charter could review; it no longer can. Two runs by one caller could clean each
+    other's checkout; they now take turns. The largest gap in the design stays open by choice: the
+    agents can edit the tests that judge them. HFMA now shows it (`tests_changed`) instead of preventing
+    it. Since a missed hand-off stops a project silently, the board says when nothing has happened for
+    30 minutes. `HFMA.md` section 14 lists what has really been used.

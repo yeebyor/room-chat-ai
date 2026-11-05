@@ -48,6 +48,8 @@ const task = (id) => ok('Gemini', 'task', id);
 const notes = file('notes.md', 'Diperiksa: tes menutup kriteria C1.');
 
 const TEST = `import { existsSync, readFileSync } from 'node:fs';
+// The tests are the agents' code: they must not see the tokens of whoever runs them.
+if (Object.keys(process.env).some((name) => /^(CHAT_.*_TOKEN|SUPABASE_.*)$/i.test(name))) { console.error('tokens reached the tests'); process.exit(1); }
 const read = (path) => existsSync(path) ? readFileSync(path, 'utf8') : '';
 const a = read('a/x.txt'), b = read('b/y.txt'), c = read('c/z.txt');
 if ([a, b, c].some((value) => value.includes('BUG'))) { console.error('BUG found'); process.exit(1); }
@@ -188,6 +190,24 @@ assert.equal(movedOut.status, 'BLOCKED');
 assert.match(movedOut.block_reason, /a\/x\.txt/);
 ok('Claude', 'cancel', String(moved), '--reason', 'Tidak jadi dipindahkan.');
 
+// Changing a test that judges the work is recorded and shown to the reviewer; adding one is not.
+const tested = ok('Claude', 'create', room, '--title', 'Ubah tes', '--team', 'GPT').id;
+ok('GPT', 'claim', String(tested));
+const beforeTested = head(tree('GPT'));
+assert.equal(spawnSync('git', ['-c', 'user.name=test', '-c', 'user.email=test@localhost', 'merge', '--no-edit', 'main'], { cwd: tree('GPT') }).status, 0);
+commit(tree('GPT'), 'b/test_new.py', 'added');
+ok('GPT', 'submit', String(tested));
+assert.equal(task(tested).tests_changed, null, 'A new test file is not a changed one');
+ok('Claude', 'review', String(tested), 'reject', '--file', notes);
+commit(tree('GPT'), 'test.mjs', `${readFileSync(join(tree('GPT'), 'test.mjs'), 'utf8')}// weakened\n`);
+ok('GPT', 'submit', String(tested));
+assert.equal(task(tested).tests_changed, 'test.mjs');
+const flagged = next('Gemini');
+assert.equal(flagged.tests_changed, 'test.mjs');
+assert.match(flagged.why, /not weakened/);
+ok('Claude', 'cancel', String(tested), '--reason', 'Hanya uji tanda.');
+assert.equal(plain(tree('GPT'), 'reset', '-q', '--hard', beforeTested).status, 0);
+
 // A merge conflict with main sends the task back (Gemini already wrote a/x.txt on main).
 const d = ok('Claude', 'create', room, '--title', 'Isi a', '--team', 'Claude').id;
 ok('Claude', 'claim', String(d));
@@ -208,7 +228,13 @@ const e = ok('Claude', 'create', room, '--title', 'Isi b/v', '--team', 'GPT').id
 ok('GPT', 'claim', String(e));
 commit(tree('GPT'), 'b/v.txt', 'conflict-b');
 ok('GPT', 'submit', String(e));
+// One test run at a time per caller; a lock left by a process that is gone does not count.
+const verifyLock = `${project}.wt/_verify-Gemini.lock`;
+writeFileSync(verifyLock, JSON.stringify({ pid: process.pid, until: Date.now() + 60000 }));
+fails(/already running/, 'Gemini', 'verify', String(e));
+writeFileSync(verifyLock, JSON.stringify({ pid: 2147483000, until: Date.now() + 60000 }));
 ok('Gemini', 'verify', String(e));
+assert.ok(!existsSync(verifyLock), 'The lock is gone after the run');
 ok('Gemini', 'review', String(e), 'approve', '--file', notes);
 assert.equal(ok('GPT', 'integrate', String(e)).status, 'DONE');
 // A checkout for a test run starts clean, also of ignored files an earlier run left there.
@@ -296,6 +322,19 @@ assert.equal(plain(project, 'checkout', '--', 'README.md').status, 0);
 ok('yeebyor', 'main-set', room, '--reason', 'Undid a stray edit in the project folder.');
 assert.equal(ok('Gemini', 'charter', room).project.inconsistent, false);
 
+// A merge recorded but not yet in the folder (integrate running, or one that died right there) is not
+// a moved main: the next command finishes the move instead of freezing the project.
+const ahead = plain(project, '-c', 'user.name=test', '-c', 'user.email=test@localhost', 'commit-tree', 'main^{tree}', '-p', 'main', '-m', 'recorded merge').stdout.trim();
+// One retry, as in say(): the CLI calls above may have let the kept-alive connection close.
+const recordAhead = () => fetch(new URL('/api/hfma', base), {
+  method: 'POST', headers: { Authorization: `Bearer ${process.env.CHAT_USER_TOKEN}`, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ op: 'main_set', args: { room, main_hash: ahead, reason: 'A merge recorded before the folder moved.' } }),
+});
+assert.equal((await recordAhead().catch(recordAhead)).status, 200);
+fails(/not REVIEW/, 'Claude', 'verify', String(e));
+assert.equal(head(project, 'main'), ahead, 'main caught up with the recorded merge');
+assert.equal(ok('Gemini', 'charter', room).project.inconsistent, false, 'No false freeze');
+
 // yeebyor hands the orchestrator role over; the charter gets a new version.
 fails(/yeebyor/, 'Claude', 'orchestrator', room, 'GPT');
 assert.equal(ok('yeebyor', 'orchestrator', room, 'GPT').version, 2);
@@ -321,4 +360,4 @@ if (!process.env.KEEP_VERIFY_ROOMS) {
     assert.equal(removed?.status, 200, `cleanup of ${name}: ${removed ? await removed.text() : 'no connection'}`);
   }
 }
-console.log(JSON.stringify({ status: 'PASS', room, checks: 'setup, next and wait, invalid SVG, orchestrator handover, dirty tree, failing submit, own verify, integrate to main, moved branch, ownership exception, a moved file counts at its old path, a clean checkout has no ignored leftovers, a cancelled dependency reaches the orchestrator, merge conflict, failing merged tests, escalation counters, main drift detection, review notes and feedback, late reviews and follow-ups, owner calls during work, no early idle, dirty project folder, close with command criteria' }));
+console.log(JSON.stringify({ status: 'PASS', room, checks: 'setup, next and wait, invalid SVG, orchestrator handover, dirty tree, failing submit, own verify, integrate to main, moved branch, ownership exception, a moved file counts at its old path, a clean checkout has no ignored leftovers, a cancelled dependency reaches the orchestrator, changed tests flagged, tokens kept from the tests, one run at a time, main catches up with a recorded merge, merge conflict, failing merged tests, escalation counters, main drift detection, review notes and feedback, late reviews and follow-ups, owner calls during work, no early idle, dirty project folder, close with command criteria' }));

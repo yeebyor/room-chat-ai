@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { request as httpRequest } from 'node:http';
 import { handoffReminder } from '../src/lib/handoff.mjs';
 import { guardedWake, wakeMessage } from '../src/lib/wake.mjs';
-import { checkedRun, dirtyFiles, environment, git, identity, scratch as scratchFor, teamTree, tryGit } from '../src/lib/hfma-local.mjs';
+import { catchUpMain, changedTests, checkedRun, dirtyFiles, environment, git, identity, teamTree, tryGit, withScratch } from '../src/lib/hfma-local.mjs';
 
 const USAGE = `Usage: hfma.mjs <Name> <command> <target> [options]
   Read:      charter <room> | board <room> | task <id>
@@ -80,7 +80,7 @@ const need = (name) => { if (!flags[name]) throw new Error(`Pass --${name}.\n${U
 
 // Merge commits carry the acting agent, never anyone's personal email.
 const as = identity(me);
-const scratch = (project, commit) => scratchFor(project, commit, me);
+const inScratch = (project, commit, work) => withScratch(project, commit, me, work);
 
 async function evidence(room, task, kind, commit, cwd, cmd, criterion) {
   // checkedRun also fails the run when an SVG in the checkout is invalid XML.
@@ -123,15 +123,22 @@ function local(action, args) {
 // Compares main with the last hash HFMA recorded, and checks that nobody changed the
 // project folder itself; either freezes integrate until yeebyor checks it.
 async function checkMain(room) {
-  const charter = await api('charter_get', { room });
+  let charter = await api('charter_get', { room });
   const project = charter.charter.project_path;
   if (!charter.project.main_hash) return charter;
   const dirty = dirtyFiles(project);
-  const report = await api('main_report', { room, main_hash: git(project, 'rev-parse', 'main'),
-    ...(dirty.length ? { dirty: dirty.join(', ').slice(0, 2000) } : {}) });
-  if (dirty.length) throw new Error(`The project folder ${project} has uncommitted changes: ${dirty.join(', ')}. Only integrate may change it; work in your team worktree. Integration is frozen until yeebyor checks it.`);
-  if (!report.consistent) throw new Error(`main in ${project} does not match the HFMA hash ${report.main_hash}. Integration is frozen until yeebyor checks it (hfma.mjs main-set).`);
-  return charter;
+  // Another agent's integrate may record a new hash at any moment: "recorded" says what this
+  // comparison was made against, and the server asks again when that has moved on.
+  for (let attempt = 1; ; attempt++) {
+    const recorded = charter.project.main_hash;
+    const report = await api('main_report', { room, main_hash: catchUpMain(project, recorded), recorded,
+      ...(dirty.length ? { dirty: dirty.join(', ').slice(0, 2000) } : {}) });
+    if (report.retry && attempt < 5) { charter = await api('charter_get', { room }); continue; }
+    if (dirty.length) throw new Error(`The project folder ${project} has uncommitted changes: ${dirty.join(', ')}. Only integrate may change it; work in your team worktree. Integration is frozen until yeebyor checks it.`);
+    if (report.retry) throw new Error('main keeps moving because other teams are integrating. Run the command again.');
+    if (!report.consistent) throw new Error(`main in ${project} does not match the HFMA hash ${report.main_hash}. Integration is frozen until yeebyor checks it (hfma.mjs main-set).`);
+    return charter;
+  }
 }
 
 // Review findings for the current round: rejects of the last submitted commit and notes
@@ -274,6 +281,8 @@ if (command === 'charter') {
       } else if (found.action === 'review') {
         const items = await feedback(found.task, true);
         if (items.length) Object.assign(found, { previous_feedback: items, why: 'Another team\'s task is waiting for verify and review. Check that every item in previous_feedback was addressed.' });
+        const changed = tasks.find((task) => task.id === found.task)?.tests_changed;
+        if (changed) Object.assign(found, { tests_changed: changed, why: `${found.why} It changes existing tests (${changed}): check that they were not weakened.` });
       }
       print(found);
       break;
@@ -340,15 +349,19 @@ if (command === 'charter') {
   const tree = teamTree(project, me);
   if (git(tree, 'status', '--porcelain')) throw new Error(`Worktree ${tree} has uncommitted changes. Commit first.`);
   const commit = git(tree, 'rev-parse', 'HEAD');
-  const saved = await evidence(task.room, task.id, 'submit', commit, scratch(project, commit), charter.test_command);
+  const saved = await inScratch(project, commit, (path) => evidence(task.room, task.id, 'submit', commit, path, charter.test_command));
   if (!saved.passed) process.exit(1);
-  print(await api('task_submit', { task: task.id, generation: task.generation, commit, evidence: saved.evidence }));
+  const changed = changedTests(project, commit);
+  print(await api('task_submit', { task: task.id, generation: task.generation, commit, evidence: saved.evidence,
+    ...(changed.length ? { tests_changed: changed.join(', ').slice(0, 2000) } : {}) }));
+  if (changed.length) console.error(`This commit changes existing tests: ${changed.join(', ')}. Tell the reviewer why, and yeebyor will see it on the board.`);
   console.error(handoffReminder('submit', { me, room: task.room, task: task.id }));
 } else if (command === 'verify') {
   // The reviewer runs the tests on the candidate personally.
   const { task, charter, project } = await context(target);
   if (task.status !== 'REVIEW') throw new Error(`The task status is ${task.status}, not REVIEW.`);
-  const saved = await evidence(task.room, task.id, 'verify', task.candidate, scratch(project, task.candidate), charter.test_command);
+  const saved = await inScratch(project, task.candidate, (path) => evidence(task.room, task.id, 'verify', task.candidate, path, charter.test_command));
+  if (task.tests_changed) console.error(`This task changes existing tests (${task.tests_changed}). A passing run proves little if they were weakened: read those changes before you approve.`);
   print({ evidence: saved.evidence, passed: saved.passed, commit: task.candidate });
 } else if (command === 'review') {
   const verdict = words[0];
@@ -405,25 +418,27 @@ if (command === 'charter') {
     process.exit(1);
   }
   // 3. Merge onto main in a scratch checkout and test the combined result.
-  const path = scratch(project, main);
-  if (!tryGit(path, ...as, 'merge', '--no-ff', '--no-edit', task.approved_hash)) {
-    tryGit(path, 'merge', '--abort');
-    print(await report('failed', { reason: 'Merge conflict with main. Merge main into the team branch, then submit again.' }));
-    process.exit(1);
-  }
-  const merged = git(path, 'rev-parse', 'HEAD');
-  const saved = await evidence(task.room, task.id, 'integrate', merged, path, charter.test_command);
-  if (!saved.passed) {
-    print(await report('failed', { reason: 'Tests failed on the result merged with main.', evidence: saved.evidence }));
-    process.exit(1);
-  }
-  // 4. Record first, then fast-forward main in the project folder (which has main
-  // checked out). If git refuses now, e.g. someone edited that folder, the next
-  // check finds main behind the recorded hash and freezes integration.
-  // base lets the database refuse this merge if another integrate moved main meanwhile.
-  const done = await report('merged', { merge_hash: merged, base: main, evidence: saved.evidence, ownership_ok: true });
-  if (git(project, 'symbolic-ref', '--short', 'HEAD') !== 'main') throw new Error(`Folder ${project} is not on the main branch.`);
-  git(project, 'merge', '--ff-only', merged);
+  const done = await inScratch(project, main, async (path) => {
+    if (!tryGit(path, ...as, 'merge', '--no-ff', '--no-edit', task.approved_hash)) {
+      tryGit(path, 'merge', '--abort');
+      print(await report('failed', { reason: 'Merge conflict with main. Merge main into the team branch, then submit again.' }));
+      process.exit(1);
+    }
+    const merged = git(path, 'rev-parse', 'HEAD');
+    const saved = await evidence(task.room, task.id, 'integrate', merged, path, charter.test_command);
+    if (!saved.passed) {
+      print(await report('failed', { reason: 'Tests failed on the result merged with main.', evidence: saved.evidence }));
+      process.exit(1);
+    }
+    // 4. Record first, then fast-forward main in the project folder (which has main
+    // checked out). If this process dies in between, the next command by anyone finishes the
+    // move (catchUpMain). If git refuses, e.g. someone edited that folder, that check freezes
+    // integration. base lets the database refuse this merge if another integrate moved main.
+    const recorded = await report('merged', { merge_hash: merged, base: main, evidence: saved.evidence, ownership_ok: true });
+    if (git(project, 'symbolic-ref', '--short', 'HEAD') !== 'main') throw new Error(`Folder ${project} is not on the main branch.`);
+    git(project, 'merge', '--ff-only', merged);
+    return recorded;
+  });
   print(done);
   // Tasks that became ready because this one is DONE: who to call in the room. The merge is
   // already recorded, so a board that cannot be read now only means no list in the reminder.

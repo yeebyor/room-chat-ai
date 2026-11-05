@@ -291,7 +291,9 @@ check it.
    shows as stale on the board, and the orchestrator or yeebyor decides whether to reassign it.
 4. **Submit** with `submit <id>`. The CLI tests your branch's latest commit in a
    clean checkout and records the result itself. You never write test evidence.
-5. **Review other teams' tasks**: `verify <id>` (you run the tests yourself),
+5. **Review other teams' tasks** when you take part in the project. If `verify` or `next` says a task
+   changes existing tests, read those changes before you approve: a passing run proves little if the
+   tests were weakened. `verify <id>` (you run the tests yourself),
    read the changes, then `review <id> approve|reject --file notes.md`. The notes
    must say what you checked and which charter criteria it covers. A team cannot
    review its own task. If another reviewer already returned or approved the task,

@@ -123,6 +123,7 @@ function RunResult({ run }: { run: CriterionRun }) {
 function ClosePanel({ board, onLocal, onDone }: { board: HfmaBoard; onLocal: Local; onDone: () => void }) {
   const criteria = board.criteria ?? [];
   const owned = criteria.filter((item) => item.check === "owner");
+  const changedTests = board.tasks.filter((task) => task.status === "DONE" && task.tests_changed);
   const [confirmed, setConfirmed] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<LocalResult | null>(null);
@@ -139,6 +140,11 @@ function ClosePanel({ board, onLocal, onDone }: { board: HfmaBoard; onLocal: Loc
     <div className="mb-3 space-y-2 rounded-md border border-white/20 bg-white/[0.06] p-3 text-xs text-zinc-300">
       <p className="text-sm text-white">Close project</p>
       <p>Closing is final: no task can be added afterwards. Command criteria run on main now; the rest needs your confirmation.</p>
+      {changedTests.length > 0 && (
+        <p className="break-words text-amber-200">
+          The tests judge the result, and these tasks changed existing ones: {changedTests.map((task) => `#${task.id} (${task.tests_changed})`).join("; ")}. Check they were not weakened.
+        </p>
+      )}
       <ul className="space-y-1.5">
         {criteria.map((item) => (
           <li key={item.id}>
@@ -209,6 +215,20 @@ const BADGE: Record<TaskStatus, string> = {
 
 const short = (hash: string | null) => hash?.slice(0, 7) ?? null;
 
+// A hand-off is a call in the room, so one that nobody made leaves no error: the agents just sleep.
+const QUIET_MINUTES = 30;
+function nextStep(tasks: HfmaTask[]): string {
+  const review = tasks.find((task) => task.status === "REVIEW");
+  if (review) return `Task #${review.id} waits for a review: call an agent from another team with @.`;
+  const approved = tasks.find((task) => task.status === "APPROVED");
+  if (approved) return `Task #${approved.id} is approved: call @${approved.team} to integrate it.`;
+  const claimed = tasks.find((task) => task.status === "CLAIMED");
+  if (claimed) return `@${claimed.team} holds task #${claimed.id}: call it if it is not working.`;
+  const ready = tasks.find((task) => task.status === "TODO" && task.depends_on.every((id) => tasks.find((other) => other.id === id)?.status === "DONE"));
+  if (ready) return `Task #${ready.id} is ready: call @${ready.team} to claim it.`;
+  return "Call the orchestrator.";
+}
+
 function TaskRow({ task, teams, cancelledDeps = [], onAction }: { task: HfmaTask; teams: Agent[]; cancelledDeps?: number[]; onAction?: Action }) {
   // The commit that matters at each stage: merged, approved, then submitted.
   const commit = short(task.merge_hash ?? task.approved_hash ?? task.candidate);
@@ -233,6 +253,7 @@ function TaskRow({ task, teams, cancelledDeps = [], onAction }: { task: HfmaTask
         {task.exception && <span className="text-amber-200">exception</span>}
         {task.stale && <span className="text-amber-200">claim stale</span>}
         {cancelledDeps.length > 0 && <span className="text-amber-200">can never start: {cancelledDeps.map((id) => `#${id}`).join(", ")} cancelled</span>}
+        {task.tests_changed && <span className="min-w-0 break-words text-amber-200">changes existing tests: {task.tests_changed}</span>}
       </div>
       {task.status === "BLOCKED" && task.block_reason && <p className="mt-1.5 text-xs text-red-200">{task.block_reason}</p>}
       {onAction && <TaskActions task={task} teams={teams} onAction={onAction} />}
@@ -430,6 +451,11 @@ export function TaskBoard({ board, onAction, onOrchestrator, onLocal }: { board:
             {finishing === "busy" ? "Setting up..." : "Finish setup"}
           </button>
           {finishing && finishing !== "busy" && finishing.error && <p role="alert" className="mt-1.5 text-red-200">{finishing.error}</p>}
+        </div>
+      )}
+      {open && pending > 0 && waiting === 0 && (board.quiet_minutes ?? 0) >= QUIET_MINUTES && (
+        <div role="status" className="mb-3 rounded-md border border-amber-300/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
+          Nothing has happened in this project for {board.quiet_minutes} minutes. An agent may still be working (see Agents at the right), or a call may have been missed. {nextStep(board.tasks)}
         </div>
       )}
       {open && panel === "close" && <ClosePanel board={board} onLocal={onLocal} onDone={() => setPanel(null)} />}

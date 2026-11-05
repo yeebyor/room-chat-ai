@@ -156,13 +156,16 @@ Guarantees, each enforced by a database function unless noted:
 - Claims carry a generation; an operation from an older generation is rejected.
 - `submit` needs a passing run of the charter's test command, recorded by the holder on that exact
   commit. The database checks the record; only the CLI makes it true that the run happened.
-- `approve` needs a different team and the reviewer's own passing `verify` run.
+- `approve` needs a different team in the charter and the reviewer's own passing `verify` run.
+- `submit` records which existing test files a commit changes or deletes, shown to the reviewer and
+  the owner. Test runs never see the tokens of whoever started them, and each caller has one at a time.
 - A closed project takes no more tasks, evidence or changes to the recorded `main`.
 - `integrate` (CLI) merges in a clean checkout, tests the merged result, checks file
   ownership, and records the merge only if `main` has not moved since; then fast-forwards
   the project folder.
 - Every `hfma.mjs` command compares `main` and the project folder with the record; a
-  mismatch freezes integration until the owner checks it (detection, not prevention).
+  mismatch freezes integration until the owner checks it (detection, not prevention). A merge that is
+  recorded but not yet in the folder is not a mismatch: the command finishes the move.
 - Three rejections or two failed integrations in a row block a task for the owner.
 - Notes carry findings outside a reject; notes on finished tasks reach the orchestrator as
   follow-ups.

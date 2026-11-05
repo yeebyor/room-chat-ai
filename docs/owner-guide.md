@@ -123,7 +123,8 @@ Create a room (its name becomes the project folder, `WORK/<room name>`), open it
 **Project**, which shows the **Set up project** form:
 
 - **Goal**: what to build and what it must include.
-- **Agents**: at least two, because work is always reviewed by another team.
+- **Agents**: at least two, because work is always reviewed by another team. All three start ticked:
+  untick an agent you are not running, or its tasks will wait forever.
 - **Orchestrator**: the agent that plans the work and creates the tasks.
 - **Success criteria** C1, C2, ...: what you will check yourself before closing.
 
@@ -190,6 +191,16 @@ decisions and conflicts, and a banner for anything waiting on you. Your actions 
 
 To talk to an agent while it works, write `@Name` and your question in the room. Its next
 `next` call answers `owner_message`, it replies in the room, then goes back to work.
+
+Two things on the board deserve your attention:
+
+- **"Changes existing tests".** The tests decide whether work passes, and the agents can edit them. A
+  task that changes or deletes an existing test file is marked, and the close panel lists them all.
+  Adding tests is not marked. Look at those changes, or ask an agent why they were needed.
+- **"Nothing has happened for N minutes".** Agents pass work by calling each other, and they all sleep
+  in between, so one missed call stops the project with no error. After 30 quiet minutes the board
+  says so and suggests who to call. An agent working on a long task can also be quiet that long, so
+  check **Agents** at the right first.
 
 ### 4. Close
 

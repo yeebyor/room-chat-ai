@@ -2,7 +2,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import type { NextRequest } from "next/server";
 import { ChatError, chatRpc, credential, errorResponse, jsonBody, jsonResponse, onThisComputer, roomName, tokenMatches, userToken } from "@/lib/chat-server";
-import { checkedRun, commitInfo, dirtyFiles, environment, git, isEmptyFolder, isHfmaRepo, scratch, setupRepo } from "@/lib/hfma-local.mjs";
+import { catchUpMain, checkedRun, commitInfo, dirtyFiles, environment, git, isEmptyFolder, isHfmaRepo, setupRepo, withScratch } from "@/lib/hfma-local.mjs";
 
 // Owner actions that need git on this machine (see HFMA.md): set up a project, accept
 // the current main, and close a project after running its command criteria on main.
@@ -94,8 +94,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (body.action === "close") {
-      const main = git(project, "rev-parse", "main");
       if (!info.project.main_hash) throw new ChatError(409, "The project is not set up yet.");
+      const main = catchUpMain(project, info.project.main_hash);
       const ownerCriteria: string[] = Array.isArray(body.owner_criteria) ? body.owner_criteria.filter((id): id is string => typeof id === "string") : [];
       // Cheap checks first, so the owner is not kept waiting for test runs that cannot lead to a close.
       const board = await hfma<{ tasks: { status: string }[]; decisions: { key: string; status: string }[] }>(token, "board", { room });
@@ -112,7 +112,13 @@ export async function POST(request: NextRequest) {
       // Every command criterion runs on main now, recorded as close evidence.
       const results = [];
       for (const criterion of info.charter.criteria.filter((item) => item.check === "command")) {
-        const result = await checkedRun(scratch(project, main, "yeebyor"), criterion.command!);
+        let result;
+        try {
+          result = await withScratch(project, main, "yeebyor", (path: string) => checkedRun(path, criterion.command!));
+        } catch (error) {
+          if ((error as { code?: string }).code === "SCRATCH_BUSY") throw new ChatError(409, "A close of this project is already running. Wait for it to finish.");
+          throw error;
+        }
         await hfma(token, "evidence_add", {
           room, kind: "close", criterion: criterion.id, commit: main, command: criterion.command, ...result, env: environment(),
         });

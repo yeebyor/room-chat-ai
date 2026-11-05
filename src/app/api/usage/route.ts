@@ -15,6 +15,7 @@ export const runtime = "nodejs";
 const AGENTS: Agent[] = ["Claude", "GPT", "Gemini"];
 // An agent whose session log changed this recently is working, even if its presence lapsed.
 const WORKING_MS = 60_000;
+const TURN_ENDING_MS = 30_000;
 
 type Joined = { session: string; tool: string; joined: { at: number } };
 
@@ -37,9 +38,13 @@ function joinedRecord(agent: Agent, room: string, messages: ChatMessage[]): Join
   } catch { return null; }
 }
 
-// chat.mjs writes this when an agent runs leave: what its session log still writes after that is not work.
-function hasLeft(agent: Agent, session: string) {
-  try { return JSON.parse(readFileSync(join(tmpdir(), `room-chat-ai-left-${agent}.json`), "utf8")).session === session; } catch { return false; }
+// chat.mjs writes when an agent ran leave or went to sleep in a wait. What its log writes shortly after
+// that is the end of its turn, not work. Later changes are work, such as a task given in its CLI.
+function restingSince(agent: Agent, session: string) {
+  try {
+    const record = JSON.parse(readFileSync(join(tmpdir(), `room-chat-ai-resting-${agent}.json`), "utf8"));
+    return record.session === session ? record.at : 0;
+  } catch { return 0; }
 }
 
 export async function GET(request: NextRequest) {
@@ -60,7 +65,7 @@ export async function GET(request: NextRequest) {
       const { from, fromStart } = countFrom(record.joined.at, used.started);
       if (fromStart) used = sessionUsage(record.tool, record.session, from) ?? used;
       const status = turn.present.includes(agent) ? "active" : turn.listening.includes(agent) ? "listening" : null;
-      const working = Date.now() - used.at < WORKING_MS && !hasLeft(agent, record.session);
+      const working = Date.now() - used.at < WORKING_MS && used.at > restingSince(agent, record.session) + TURN_ENDING_MS;
       // An agent that is no longer running stays in the list as "idle", as long as the log exists. The
       // total is its session's, also what it did in other rooms: the log does not say which room.
       const { input, cached, output } = used;

@@ -171,13 +171,21 @@ try {
   assert.equal(r.seen, null);
   assert.ok(r.joined.at >= joinedAt);
 
-  // The record of leaving, for the sidebar: says which session left, and the next wait clears it.
-  const leftFile = join(tmpdir(), 'room-chat-ai-left-GPT.json');
+  // The record of resting, for the sidebar: leave and a sleeping wait write it, waking clears it.
+  const restFile = join(tmpdir(), 'room-chat-ai-resting-GPT.json');
   await run(['leave', room], session1);
   assert.equal(lastPresence, 'left');
-  assert.equal(JSON.parse(readFileSync(leftFile, 'utf8')).session, 'cli-session-1');
+  assert.equal(JSON.parse(readFileSync(restFile, 'utf8')).session, 'cli-session-1');
   await run(['wait', room, '--timeout', '5'], session1);
-  assert.ok(!existsSync(leftFile), 'a wait means it came back');
+  assert.ok(!existsSync(restFile), 'a wait that is not a sleep means it came back');
+  standbyCalls = [];
+  const sleeping = run(['wait', '--all', '--timeout', '4'], session1);
+  for (let i = 0; i < 100 && !existsSync(restFile); i++) await new Promise((resolve) => setTimeout(resolve, 50));
+  const restedAt = JSON.parse(readFileSync(restFile, 'utf8')).at;
+  assert.equal((await run(['wait', '--all', '--timeout', '4'], session1)).json().status, 'already_waiting');
+  assert.equal(JSON.parse(readFileSync(restFile, 'utf8')).at, restedAt, 'a second wait changes nothing');
+  await sleeping;
+  assert.ok(!existsSync(restFile), 'a wait that ends is a wake');
 } finally {
   rmSync(temp, { recursive: true, force: true });
   server.close();
@@ -199,4 +207,4 @@ assert.match(handoffReminder('integrate', { ...base, me: 'Claude', ready: [{ id:
 assert.match(handoffReminder('integrate', { ...base, me: 'Claude', ready: [] }), /every task is done, call @yeebyor to assess/);
 for (const kind of ['submit', 'approve', 'reject', 'integrate']) assert.ok(!handoffReminder(kind, { ...base, team: 'Claude' }).includes(String.fromCharCode(0x2014)), 'no em dash');
 
-console.log(JSON.stringify({ status: 'PASS', checks: 'compact turn, wait --wake leaves messages unseen, delta reads, read --new, read says when older messages exist and pages back, wait --all, a long wait always listens, send retries a passing server error with the same client_id, join record per session, the record of leaving, hand-off reminders' }));
+console.log(JSON.stringify({ status: 'PASS', checks: 'compact turn, wait --wake leaves messages unseen, delta reads, read --new, read says when older messages exist and pages back, wait --all, a long wait always listens, send retries a passing server error with the same client_id, join record per session, the record of resting, hand-off reminders' }));

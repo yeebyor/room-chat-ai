@@ -94,10 +94,12 @@ function readAfter() {
 function saveAfter(after) {
   try { writeFileSync(afterFile, JSON.stringify({ session, after, at: Date.now() })); } catch { /* losing it only moves the start */ }
 }
-// An agent that ran leave is not working, even while its session log still changes for a moment
-// (src/app/api/usage/route.ts reads this for the sidebar). Its next wait clears it.
-const leftFile = join(tmpdir(), `room-chat-ai-left-${sender}.json`);
-if (action === 'wait') { try { unlinkSync(leftFile); } catch { /* it had not left */ } }
+// When this session last stopped working, by running leave or going to sleep in a wait. Its log still
+// changes for a moment as the turn ends, and the sidebar must not call that working
+// (src/app/api/usage/route.ts). Waking, or a wait that is not a sleep, clears it.
+const restFile = join(tmpdir(), `room-chat-ai-resting-${sender}.json`);
+const saveRest = () => { try { writeFileSync(restFile, JSON.stringify({ session, at: Date.now() })); } catch { /* the record is only for the display */ } };
+const clearRest = () => { try { unlinkSync(restFile); } catch { /* it was not resting */ } };
 // The turn as an agent needs it. The odds, the roll and the gathering seed are for the server and
 // the web page; printing them costs tokens on every wake and every one stays in the agent's context.
 function compactTurn(turn) {
@@ -231,6 +233,8 @@ if (action === 'send') {
       } catch { /* a lock left behind expires by itself */ }
     });
   }
+  // After the lock, so a second wait that finds one already running changes nothing.
+  if (flags.listen) { saveRest(); process.on('exit', clearRest); } else clearRest();
   let failures = 0;
   let after = flags.all ? readAfter() : null;
   const pause = () => new Promise((resolve) => setTimeout(resolve, Date.now() - started < 120000 ? 3000 : 10000));
@@ -298,7 +302,7 @@ if (action === 'send') {
 } else if (action === 'leave') {
   // Removes this agent from the draw at once; run it before exiting the cycle.
   const { turn } = await call({}, 1, 'left');
-  try { writeFileSync(leftFile, JSON.stringify({ session, at: Date.now() })); } catch { /* the record is only for the display */ }
+  saveRest();
   console.log(JSON.stringify({ status: 'left', present: turn.present, next: turn.next }, null, 2));
 } else {
   // read --new: only what the agent has not seen (and the turn), like a wake shows it. Plain read

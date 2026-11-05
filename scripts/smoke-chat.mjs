@@ -47,7 +47,6 @@ function expectedTurn(messages) {
   const others = AGENTS.filter((agent) => agent !== last?.sender);
   const called = others.filter((agent) => last && new RegExp(`@${agent}\\b`, 'i').test(last.message));
   const present = others.filter((agent) => presence[agent] === 'active');
-  const anyPresence = Object.keys(presence).length > 0;
   const lone = AGENTS.includes(last?.sender) && presence[last.sender] === 'active' ? [last.sender] : [];
   // A message from yeebyor is answered by everyone it is for (a round): with no @agent every agent
   // present or listening, with @agents each agent named (the draw only picks who goes first). Each
@@ -58,7 +57,9 @@ function expectedTurn(messages) {
     && (last.id === ownerLast.id || (last.sender !== 'yeebyor' && !called.length));
   const spoke = new Set(messages.filter((m) => BigInt(m.id) > BigInt(ownerLast?.id ?? 0)).map((m) => m.sender));
   const round = inRound ? others.filter((agent) => ['active', 'listening'].includes(presence[agent]) && (!named.length || named.includes(agent)) && !spoke.has(agent)) : [];
-  const pool = called.length ? called : round.length ? round : present.length ? present : anyPresence ? lone : others;
+  // Of several agents called, those here go first; one called alone keeps the turn even if away.
+  const calledHere = called.filter((agent) => ['active', 'listening'].includes(presence[agent]));
+  const pool = called.length ? (calledHere.length ? calledHere : called) : round.length ? round : present.length ? present : lone;
   const weights = AGENTS.map((agent) => {
     if (!pool.includes(agent)) return 0;
     if (called.length === 1) return 1;
@@ -94,11 +95,14 @@ const say = (sender, message, extra = {}) => request('/api/messages', sender, { 
 const equalOdds = (turn) => AGENTS.forEach((agent) => assert.ok(Math.abs(turn.probabilities[agent] - 1 / 3) < 0.0001));
 
 assert.equal((await request(`/api/messages?room=${room}&presence=bogus`, 'GPT')).status, 422);
-assert.equal((await checkedTurn()).stopped, false, 'Empty room is open to the drawn agent');
+// Nobody is here yet, so the turn names no agent.
+assert.equal((await checkedTurn()).next, null, 'An agent that is not here never gets the turn');
 // Plain names are ordinary text; only @mentions route the turn.
 const opening = await say('yeebyor', 'Topik tes untuk Claude dan GPT: <script>literal text</script>');
 assert.equal(opening.status, 201);
 assert.equal(opening.data.message.sender, 'yeebyor');
+assert.equal((await checkedTurn()).next, null, 'Still nobody here, so nobody is named');
+for (const agent of AGENTS) await report(agent, 'active');
 let turn = await checkedTurn();
 equalOdds(turn);
 
@@ -281,6 +285,13 @@ const general = (await request('/api/messages?room=general', 'GPT')).data.messag
 assert.ok(general.every((message) => message.room === 'general'));
 assert.ok((await request('/api/rooms', 'GPT')).data.rooms.some((item) => item.name === room));
 
+// Two agents are enough: one that is not here never holds the turn over one that is.
+const pairRoom = `${room}-pair`;
+assert.equal((await request('/api/rooms', 'yeebyor', { room: pairRoom })).status, 201);
+for (const agent of ['Claude', 'Gemini']) assert.equal((await request(`/api/messages?room=${pairRoom}&limit=1&presence=listening`, agent)).status, 200);
+assert.equal((await request('/api/messages', 'yeebyor', { room: pairRoom, message: '@GPT @Claude what do you think?', client_id: randomUUID() })).status, 201);
+assert.equal((await request(`/api/messages?room=${pairRoom}&limit=1`, 'Gemini')).data.turn.next, 'Claude', 'GPT is not here, so the turn goes to Claude');
+
 // Rooms: only yeebyor creates them, explicitly or by sending; agents get 403 or 404.
 const fresh = `${room}-new`;
 assert.equal((await request('/api/rooms', 'GPT', { room: fresh })).status, 403, 'Agents cannot create rooms');
@@ -401,11 +412,11 @@ assert.ok(!direct.ok, 'Private messages are not exposed');
 // then the owner deletes the rooms this test made. KEEP_VERIFY_ROOMS=1 keeps them to look at.
 const keep = Boolean(process.env.KEEP_VERIFY_ROOMS);
 if (!keep) {
-  for (const name of [room, gatherRoom, fresh]) {
+  for (const name of [room, gatherRoom, fresh, pairRoom]) {
     for (const agent of AGENTS) await request(`/api/messages?room=${name}&limit=1&presence=left`, agent);
     const removed = await request(`/api/rooms?room=${name}`, 'yeebyor', undefined, {}, 'DELETE');
     assert.equal(removed.status, 200, `cleanup of ${name}: ${JSON.stringify(removed.data)}`);
   }
 }
-console.log(JSON.stringify({ status: 'PASS', room, checks: 'credentials, identities, idempotency, validation, turn-taking, @mentions, presence, listening, round for a message that names no agent or several, empty-room gathering, @yeebyor wait, leave, lone agent, room create (owner only), activity, pins, rename, delete, realtime signals, stale replies, exact last_seen, stop phrase (whole message), per-discussion reset, concurrency, pagination, room isolation, private database access' }));
+console.log(JSON.stringify({ status: 'PASS', room, checks: 'credentials, identities, idempotency, validation, turn-taking, @mentions, presence, listening, round for a message that names no agent or several, an absent agent never holds the turn, empty-room gathering, @yeebyor wait, leave, lone agent, room create (owner only), activity, pins, rename, delete, realtime signals, stale replies, exact last_seen, stop phrase (whole message), per-discussion reset, concurrency, pagination, room isolation, private database access' }));
 if (keep) console.log(`Browser verification: ${base}/?room=${room}`);

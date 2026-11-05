@@ -28,7 +28,7 @@ function actionsFor(task: HfmaTask): Kind[] {
   return [...kinds, "reassign", "cancel"];
 }
 
-function TaskActions({ task, onAction }: { task: HfmaTask; onAction: Action }) {
+function TaskActions({ task, teams, onAction }: { task: HfmaTask; teams: Agent[]; onAction: Action }) {
   const [kind, setKind] = useState<Kind | null>(null);
   const [reason, setReason] = useState("");
   const [team, setTeam] = useState<Agent>(task.team);
@@ -59,7 +59,7 @@ function TaskActions({ task, onAction }: { task: HfmaTask; onAction: Action }) {
       <div className="flex flex-wrap items-center gap-1.5">
         {kind === "reassign" && (
           <select value={team} onChange={(event) => setTeam(event.target.value as Agent)} aria-label="New team" className={field}>
-            {AGENTS.map((agent) => <option key={agent} value={agent} className="bg-zinc-900">{agent}</option>)}
+            {teams.map((agent) => <option key={agent} value={agent} className="bg-zinc-900">{agent}</option>)}
           </select>
         )}
         <input
@@ -169,7 +169,7 @@ function ClosePanel({ board, onLocal, onDone }: { board: HfmaBoard; onLocal: Loc
 }
 
 // Handing the role over writes the charter as a new version; the page does that part.
-function OrchestratorControl({ current, onChange }: { current: Agent; onChange: (name: string) => Promise<string | null> }) {
+function OrchestratorControl({ current, teams, onChange }: { current: Agent; teams: Agent[]; onChange: (name: string) => Promise<string | null> }) {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -185,7 +185,7 @@ function OrchestratorControl({ current, onChange }: { current: Agent; onChange: 
       {editing ? (
         <select autoFocus defaultValue={current} disabled={busy} aria-label="Orchestrator" onChange={(event) => void pick(event.target.value)}
           onBlur={() => !busy && setEditing(false)} className={field}>
-          {AGENTS.map((agent) => <option key={agent} value={agent} className="bg-zinc-900">{agent}</option>)}
+          {teams.map((agent) => <option key={agent} value={agent} className="bg-zinc-900">{agent}</option>)}
         </select>
       ) : (
         <button type="button" onClick={() => setEditing(true)} title="Change orchestrator" className={`underline decoration-white/30 underline-offset-2 hover:text-white ${focusRing}`}>
@@ -209,7 +209,7 @@ const BADGE: Record<TaskStatus, string> = {
 
 const short = (hash: string | null) => hash?.slice(0, 7) ?? null;
 
-function TaskRow({ task, cancelledDeps = [], onAction }: { task: HfmaTask; cancelledDeps?: number[]; onAction?: Action }) {
+function TaskRow({ task, teams, cancelledDeps = [], onAction }: { task: HfmaTask; teams: Agent[]; cancelledDeps?: number[]; onAction?: Action }) {
   // The commit that matters at each stage: merged, approved, then submitted.
   const commit = short(task.merge_hash ?? task.approved_hash ?? task.candidate);
   return (
@@ -235,7 +235,7 @@ function TaskRow({ task, cancelledDeps = [], onAction }: { task: HfmaTask; cance
         {cancelledDeps.length > 0 && <span className="text-amber-200">can never start: {cancelledDeps.map((id) => `#${id}`).join(", ")} cancelled</span>}
       </div>
       {task.status === "BLOCKED" && task.block_reason && <p className="mt-1.5 text-xs text-red-200">{task.block_reason}</p>}
-      {onAction && <TaskActions task={task} onAction={onAction} />}
+      {onAction && <TaskActions task={task} teams={teams} onAction={onAction} />}
     </li>
   );
 }
@@ -404,7 +404,7 @@ export function TaskBoard({ board, onAction, onOrchestrator, onLocal }: { board:
       <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
         <span>Charter v{board.charter_version}</span>
         {board.orchestrator && (open
-          ? <OrchestratorControl current={board.orchestrator} onChange={onOrchestrator} />
+          ? <OrchestratorControl current={board.orchestrator} teams={board.agents?.length ? board.agents : AGENTS} onChange={onOrchestrator} />
           : <span>orchestrator {board.orchestrator}</span>)}
         <span className="tabular-nums">{done} done, {pending} open</span>
         {board.project.main_hash && (
@@ -449,7 +449,7 @@ export function TaskBoard({ board, onAction, onOrchestrator, onLocal }: { board:
         </div>
       )}
       {tasks.length ? (
-        <ul className="space-y-2">{tasks.map((task) => <TaskRow key={task.id} task={task} cancelledDeps={task.status === "TODO" ? task.depends_on.filter((id) => board.tasks.find((other) => other.id === id)?.status === "CANCELLED") : []} onAction={open ? onAction : undefined} />)}</ul>
+        <ul className="space-y-2">{tasks.map((task) => <TaskRow key={task.id} task={task} teams={board.agents?.length ? board.agents : AGENTS} cancelledDeps={task.status === "TODO" ? task.depends_on.filter((id) => board.tasks.find((other) => other.id === id)?.status === "CANCELLED") : []} onAction={open ? onAction : undefined} />)}</ul>
       ) : (
         <p className="text-sm text-zinc-400">No tasks yet. The orchestrator creates them, or add one with New task.</p>
       )}

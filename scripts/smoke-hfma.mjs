@@ -56,6 +56,19 @@ assert.equal((await ok('yeebyor', 'charter_set', { room, charter })).version, 1)
 assert.equal((await ok('GPT', 'charter_get', { room })).charter.orchestrator, 'Claude');
 await refused(422, /Unknown operation/, 'GPT', 'drop_everything', {});
 
+// A project needs only the agents it names: the orchestrator and every task stay among them.
+const pair = `${room}-pair`;
+assert.equal((await fetch(new URL('/api/rooms', base), {
+  method: 'POST', headers: { Authorization: `Bearer ${tokens.yeebyor}`, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ room: pair }),
+})).status, 201);
+const pairCharter = { ...charter, ownership: { Claude: ['**'], Gemini: ['**'] } };
+await refused(422, /must be one of the agents in ownership/, 'yeebyor', 'charter_set', { room: pair, charter: { ...pairCharter, orchestrator: 'GPT' } });
+await ok('yeebyor', 'charter_set', { room: pair, charter: pairCharter });
+await refused(422, /GPT is not in this project/, 'Claude', 'task_create', { room: pair, title: 'Untuk GPT', team: 'GPT' });
+const pairTask = (await ok('Claude', 'task_create', { room: pair, title: 'Untuk Gemini', team: 'Gemini' })).id;
+await refused(422, /GPT is not in this project/, 'Claude', 'task_reassign', { task: pairTask, reason: 'Pindah.', team: 'GPT' });
+
 // Hand-off: in a project room an agent may call another agent with @name without holding the
 // turn (the other agents only listen, so nobody holds it); without a charter it is refused.
 const readTurn = async (sender, roomName, presence) => (await (await fetch(new URL(`/api/messages?room=${roomName}&limit=1${presence ? `&presence=${presence}` : ''}`, base), {
@@ -242,10 +255,10 @@ assert.ok(!direct.ok, 'HFMA tables are not exposed');
 // Leave nothing behind (the agents leave first: the 90-second presence rule would refuse the delete).
 // KEEP_VERIFY_ROOMS=1 keeps the rooms to look at.
 if (!process.env.KEEP_VERIFY_ROOMS) {
-  for (const name of [room, plain]) {
+  for (const name of [room, plain, pair]) {
     for (const agent of ['Claude', 'GPT', 'Gemini']) await readTurn(agent, name, 'left');
     const removed = await fetch(new URL(`/api/rooms?room=${name}`, base), { method: 'DELETE', headers: { Authorization: `Bearer ${tokens.yeebyor}` } });
     assert.equal(removed.status, 200, `cleanup of ${name}: ${await removed.text()}`);
   }
 }
-console.log(JSON.stringify({ status: 'PASS', room, checks: 'I1 charter and close owner-only, hand-off call in a project room, decisions and conflicts, I2 transitions/roles/generations, I3 review gate, evidence bound to the charter test command, a closed project stays closed, I5 open delegations, I6 events, main consistency, escalation, private tables' }));
+console.log(JSON.stringify({ status: 'PASS', room, checks: 'I1 charter and close owner-only, a project of two agents, hand-off call in a project room, decisions and conflicts, I2 transitions/roles/generations, I3 review gate, evidence bound to the charter test command, a closed project stays closed, I5 open delegations, I6 events, main consistency, escalation, private tables' }));

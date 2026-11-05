@@ -88,6 +88,7 @@ declare
   v_present text[];
   v_listening text[];
   v_pool text[];
+  v_here text[];
   v_owner_last chat_private.messages;
   v_named text[];
   v_spoke text[];
@@ -172,23 +173,24 @@ begin
         and not agent = any(v_spoke);
   end if;
   -- @mentions decide the pool, then an open round for yeebyor's message to everyone.
-  -- Otherwise: agents present and not listening.
+  -- Otherwise: agents present and not listening. Any two agents are enough for a room, so an agent
+  -- that is not here never holds the turn over one that is: of several agents called, those here
+  -- go first. One called alone keeps the turn, so it answers if it comes or was only busy.
   if cardinality(v_called) > 0 then
     v_pool := v_called;
+    select coalesce(array_agg(agent), '{}') into v_here from unnest(v_called) agent
+      where agent = any(v_present) or agent = any(v_listening);
+    if cardinality(v_here) > 0 then
+      v_pool := v_here;
+    end if;
   elsif cardinality(v_round) > 0 then
     v_pool := v_round;
   else
     select coalesce(array_agg(agent), '{}') into v_pool from unnest(v_agents) agent
       where agent is distinct from v_last.sender and agent = any(v_present);
-    if cardinality(v_pool) = 0 then
-      if cardinality(v_present) + cardinality(v_listening) = 0 then
-        -- Nobody reports presence (e.g. direct API use): every other agent.
-        select coalesce(array_agg(agent), '{}') into v_pool from unnest(v_agents) agent
-          where agent is distinct from v_last.sender;
-      elsif v_last.sender = any(v_present) then
-        -- The only agent present may continue, e.g. to call @yeebyor before leaving.
-        v_pool := array[v_last.sender];
-      end if;
+    -- The only agent present may continue, e.g. to call @yeebyor before leaving.
+    if cardinality(v_pool) = 0 and v_last.sender = any(v_present) then
+      v_pool := array[v_last.sender];
     end if;
   end if;
   for i in 1..3 loop
@@ -205,7 +207,8 @@ begin
     v_total := v_total + v_weights[i];
   end loop;
   if v_total = 0 then
-    -- Everyone else is listening: nobody speaks until someone is @mentioned.
+    -- Nobody here, or everyone else is listening: nobody speaks until someone is @mentioned or an
+    -- agent joins with wait.
     return jsonb_build_object('next', null, 'stopped', false, 'probabilities', null, 'roll', null,
       'last_id', v_last.id::text, 'last_sender', v_last.sender, 'open_at', null,
       'called', to_jsonb(v_called), 'present', to_jsonb(v_present), 'listening', to_jsonb(v_listening),
@@ -879,6 +882,9 @@ begin
       perform chat_private.hfma_fail('invalid', format('ownership.%s must be a list of paths for team Claude, GPT or Gemini.', v_key));
     end if;
   end loop;
+  if not (p_body->'ownership') ? (p_body->>'orchestrator') then
+    perform chat_private.hfma_fail('invalid', format('orchestrator %s must be one of the agents in ownership.', p_body->>'orchestrator'));
+  end if;
 end;
 $$;
 
@@ -977,6 +983,9 @@ begin
     perform chat_private.hfma_open(v_room);
     if coalesce(p_args->>'team', '') not in ('Claude', 'GPT', 'Gemini') then
       perform chat_private.hfma_fail('invalid', 'team must be one of Claude, GPT or Gemini.');
+    end if;
+    if not ((chat_private.hfma_charter(v_room)).body->'ownership') ? (p_args->>'team') then
+      perform chat_private.hfma_fail('invalid', format('%s is not in this project: the charter does not list it.', p_args->>'team'));
     end if;
     if p_args ? 'depends_on' and (jsonb_typeof(p_args->'depends_on') <> 'array'
       or exists (select 1 from jsonb_array_elements_text(p_args->'depends_on') d where d !~ '^[1-9][0-9]{0,17}$'
@@ -1175,6 +1184,9 @@ begin
     end if;
     if p_op = 'task_reassign' and p_args ? 'team' and coalesce(p_args->>'team', '') not in ('Claude', 'GPT', 'Gemini') then
       perform chat_private.hfma_fail('invalid', 'team must be one of Claude, GPT or Gemini.');
+    end if;
+    if p_op = 'task_reassign' and p_args ? 'team' and not ((chat_private.hfma_charter(v_task.room)).body->'ownership') ? (p_args->>'team') then
+      perform chat_private.hfma_fail('invalid', format('%s is not in this project: the charter does not list it.', p_args->>'team'));
     end if;
     update chat_private.delegations set status = 'cancelled', closed_at = now() where task_id = v_task.id and status = 'open';
     if p_op = 'task_cancel' then

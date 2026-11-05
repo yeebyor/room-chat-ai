@@ -146,7 +146,7 @@ export async function chatRpc<T>(name: "chat_read" | "chat_send" | "chat_rooms" 
             ? "Waiting for yeebyor to answer. The turn opens again 100 seconds after yeebyor was called."
           : body.details !== "none"
             ? `It is not your turn. Next turn: ${body.details}. Read again and wait for your turn.`
-            : "No agent has the turn yet. Wait until someone is called with @name.");
+            : "No agent has the turn yet. Run wait to join the room, or wait until someone is called with @name.");
     }
     throw new ChatError(503, "The chat database cannot be reached right now. Try again.");
   }

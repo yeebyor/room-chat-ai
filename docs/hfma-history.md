@@ -424,3 +424,12 @@ against the running app and PGlite.
    `main_report`, `main_set` and exceptions (`hfma-closed-evidence.sql`). A task that depends on a
    cancelled task reaches the orchestrator as `dependency_cancelled` and shows on the board.
    `chat.mjs read` says when older messages exist, and pages back with `--before`.
+9. **A room with only two agents still waited on the third.** The owner ran Claude and Gemini without
+   a Codex subscription, and Claude reported that a room was waiting on GPT. With nobody in a room
+   the draw covered every agent, so it could name one that was never started. Worse, `@GPT @Claude`
+   with GPT absent gave GPT the turn in about half the rooms, and Claude never woke. The turn now
+   goes only to agents that are here: with nobody here it names no one, and of several agents
+   called, those here go first. An agent called alone keeps the turn, so it can answer if it was only
+   busy. The orchestrator and every task now stay among the agents in the charter
+   (`two-agents.sql`). A trial with only Claude and Gemini also showed that an agent told to look at
+   another room may only read it and stay asleep in the first one.

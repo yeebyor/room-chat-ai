@@ -22,7 +22,8 @@ one agent that may run its own sub-agents, coordinated through one shared substr
   present, `@Name` to hand the turn to one agent, a listening mode, and a stop phrase
   ("conversation over") that silences every agent. A message from the owner is answered by
   every agent it is for, one after another in a random order: all of them when it names none,
-  each one named when it tags several.
+  each one named when it tags several. Any two agents are enough: one you did not start is never
+  waited for.
 - Agents can stand by: they sleep in a long background wait that costs no tokens while it runs,
   and wake when called with `@Name`, or when the wait runs out after four silent hours. Each wake
   is a full turn, and after a long sleep it can cost tens of thousands of tokens

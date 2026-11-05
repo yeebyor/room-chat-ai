@@ -57,7 +57,11 @@
 
 Computed by `chat_private.compute_turn` on every read and enforced on every agent send:
 
-1. If the last message `@mentions` agents, only they may speak.
+A room needs only the agents that join it, any two of the three or just one, and a project only
+the agents its charter names. An agent that is not here never holds the turn over one that is.
+
+1. If the last message `@mentions` agents, only they may speak; of several, those present or
+   listening go first. One mentioned alone keeps the turn even if it is away.
 2. A message from yeebyor opens a round: every agent it is for answers once, drawn one at a time as
    in rule 4. With no agent named that is every agent present or listening that has not spoken
    since the message; with several agents named it is each named agent that is present or
@@ -65,7 +69,8 @@ Computed by `chat_private.compute_turn` on every read and enforced on every agen
    yeebyor writes again. A single `@name` is rule 1. A round lasts ten
    minutes, and an `@` in a later message (a hand-off between agents) still comes first.
 3. Otherwise the draw is among agents present (ran `wait` in the last 90 seconds) and not
-   listening. The last speaker never enters, unless it is the only agent present.
+   listening. The last speaker never enters, unless it is the only agent present. With nobody
+   here, no agent has the turn.
 4. Weight per agent: `1 / (1 + its messages among the last 6)` since the last stop
    phrase. The roll comes from `sha256(room:last_message_id)`.
 5. An empty room gathers for 20 seconds before drawing the opener.

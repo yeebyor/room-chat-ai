@@ -34,6 +34,7 @@ step before it was applied.
 | 22 | `project-handoff.sql` | In a project room an agent may call another agent with @name without holding the turn |
 | 23 | `named-round.sql` | A message from yeebyor that tags several agents is answered by each of them, one at a time |
 | 24 | `hfma-closed-evidence.sql` | A passing run must be of the charter's test command; a closed project refuses evidence, `main_report`, `main_set`, unblock and exception |
+| 25 | `two-agents.sql` | An agent that is not here never holds the turn over one that is; with nobody here no agent is named; the orchestrator and every task stay among the agents in the charter |
 
 When you change the schema, edit `../schema.sql` and add the matching upgrade script
 here, so both stay in step.

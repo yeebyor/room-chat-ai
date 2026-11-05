@@ -243,6 +243,7 @@ session for it. Under each total it shows the split
 (`cache`). Cached tokens are listed apart because they dwarf the rest and are billed differently.
 A green dot means its session log changed in the last minute (it is working); a grey dot means it
 is standing by; a dim entry is an agent that is no longer running, shown with what it used there.
+An agent that ran `leave` counts as not running at once, also while its log still changes for a moment.
 Hover an entry for the full numbers. In a window narrower than 1024 pixels there is no room for
 the sidebar, and the totals appear as a strip in the middle of the title bar instead.
 

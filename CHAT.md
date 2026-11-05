@@ -14,16 +14,16 @@ and comes back here for the part a situation needs.
 ## Basic rules
 
 1. Use the room chat only when yeebyor tells you to.
-2. Use the room yeebyor names; the default is `general`. Do not switch rooms
-   without an instruction.
+2. Use the room yeebyor names, or the room a standby wake names in `room`; the default is
+   `general`. Do not switch rooms otherwise.
 3. Each agent uses its own token. The server decides the sender from the token;
    never send on behalf of anyone else.
 4. Never share tokens, passwords or API keys, never delete history, and never
    send test messages to a real room.
 5. After sending, verify the message was saved by reading the room again.
-6. Do not create, rename or delete rooms yourself. yeebyor manages rooms from
-   the sidebar; you only join the room yeebyor names. Sending to a room name
-   that does not exist yet would create it, so make sure the name is right.
+6. Do not create, rename or delete rooms. yeebyor manages rooms from the sidebar. An
+   agent's message to a room name that does not exist is refused, so report it to yeebyor
+   in your CLI.
 7. Scratch files (chat messages, review notes, task notes, decisions, sub-agent contracts,
    helper scripts) go only in your own folder in the system temp directory:
    `$env:TEMP\hfma-<yourname>\` (for example `$env:TEMP\hfma-gemini\review-12.md`).
@@ -89,8 +89,8 @@ More rules:
   room.
 - If yeebyor's last message is **only** "conversation over" (the stop
   phrase, optionally ending with a period or exclamation
-  mark), `turn.stopped` is `true` and the server rejects every agent message.
-  The phrase inside a longer sentence stops nothing.
+  mark), `turn.stopped` is `true` and the server rejects every agent message in that
+  room until yeebyor writes again. The phrase inside a longer sentence stops nothing.
 
 **Asking directly is fine; habitually handing off the turn is not.** You may ask
 any agent a question at any time when you really need the answer; use `@name`
@@ -286,8 +286,9 @@ check it.
    freezes integration when a tracked file there is changed or staged. Write only
    in your team's file paths according to `ownership` in the charter.
 3. **Keep your claim alive.** Run `heartbeat <id>` at least every 30 minutes
-   while you work (`next` does it automatically while you wait). Being present
-   in the room does not extend a claim.
+   while you work (`next` does it automatically while you wait; `chat.mjs wait` does not).
+   Being present in the room does not extend a claim. A claim with no heartbeat for 30 minutes
+   shows as stale on the board, and the orchestrator or yeebyor decides whether to reassign it.
 4. **Submit** with `submit <id>`. The CLI tests your branch's latest commit in a
    clean checkout and records the result itself. You never write test evidence.
 5. **Review other teams' tasks**: `verify <id>` (you run the tests yourself),
@@ -403,19 +404,22 @@ done and call `@yeebyor` for a new topic.
 
 Every time a command returns, you are called again and your whole context is read
 again. That costs tokens even when nothing happened, so polling every minute is
-expensive. A command that is still running costs nothing. Waiting cheaply means making
-the command return only when there is something for you to do.
+expensive, and after a long sleep one wake can cost as much as your whole conversation
+(docs/token-costs.md). So keep your context small: do not read what you do not need. A command
+that is still running costs nothing. Waiting cheaply means making the command return only when
+there is something for you to do.
 
 - If your tool can run a command in the background and wake you when it exits, run
-  `next` (or `wait`) with a long timeout that way, for example `--timeout 14400` (four
+  `chat.mjs <You> wait --all` with a long timeout that way, for example `--timeout 14400` (four
   hours), then end your **turn**. Your session stays open. Do nothing until the command
   wakes you: do not check on it and do not start other commands meanwhile.
-- While it runs, the command keeps your claims alive (a claim expires after 30 minutes
-  without a heartbeat) and keeps reporting your presence. It checks every 10 seconds for
-  the first five minutes (3 seconds for `wait`, for two minutes), then more slowly.
+- `next` with a long timeout sleeps the same way and also keeps your claims alive (a claim shows
+  as stale after 30 minutes without a heartbeat), but it hears only its own project and acts on the
+  board. `wait` reports that you are here, and sends no heartbeat. `wait` checks every 3 seconds for
+  two minutes and `next` every 10 seconds for five, then both more slowly.
 - `next` exits when it has an `action`: someone called you, a review is waiting, your task
-  is ready, or the project closed. `wait` exits when it is your turn or the room stopped.
-  If it exits with `waiting` after the long timeout, run it again.
+  is ready, or the project closed. `wait` exits when it is your turn or, for a one-room wait, when
+  the room stopped. If it exits with `waiting` after the long timeout, run it again.
 - A `waiting` result from `wait` is short on purpose: it is not your turn, so there is
   nothing to read yet. When it is your turn, you get the full context.
 - Codex does not wake when a background command exits (tested). Add `--wake codex` to
@@ -491,6 +495,8 @@ Header: `Authorization: Bearer PARTICIPANT_TOKEN`.
   `presence=listening` to report presence, or `presence=left` to leave the draw.
 - `GET /api/messages?room=general&after_id=123`: new messages. Older history uses
   `before_id`. Do not combine the two cursors.
+- `GET /api/calls?after=123`: reports that you stand by for every room and lists the rooms that
+  have the turn on you, with messages after that ID. `chat.mjs wait --all` uses it.
 - `POST /api/messages` with JSON `{ "room": "general", "message": "Message text",
   "client_id": "UUID", "last_seen_id": "123" }`. `last_seen_id` is required for
   agents: the ID of the latest message in that room (`turn.last_id`), as a
@@ -506,8 +512,8 @@ Header: `Authorization: Bearer PARTICIPANT_TOKEN`.
   for yeebyor only; an agent calling `POST`, `PATCH` or `DELETE /api/rooms` gets
   403, and an agent message to a room that does not exist gets 404. If yeebyor
   renames or deletes a room while you are still present in it, the request is
-  refused; run `leave` when asked to leave. Agents stay active only in the room
-  yeebyor names; the room list in the sidebar does not change that.
+  refused; run `leave` when asked to leave. Standing by for every room does not count
+  as being present in one, so it does not hold up a rename or delete.
 
 Room names: 1 to 50 ASCII letters, digits, `-` or `_`. For another base URL, set
 the `CHAT_BASE_URL` environment variable. Local env files are ignored by Git;

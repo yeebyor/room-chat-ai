@@ -36,8 +36,8 @@ CLI and violations are detected.
    exists and fits; it cannot see that the run happened (section 6).
 3. Work status lives in the database. A chat message saying "done" changes nothing.
 
-**Not built, on purpose.** Token budgets (a project's token use cannot be estimated, and
-vendors do not expose it), cascading cancellation of running sub-agent processes (they
+**Not built, on purpose.** Token budgets (a project's token use cannot be estimated in advance, and
+vendors do not expose quota; the sidebar only shows counts afterwards), cascading cancellation of running sub-agent processes (they
 live inside the vendor runtime; `cancel` and `reassign` close their records), process
 isolation between agents, and a tamper-proof log. All four follow from the threat model.
 
@@ -142,8 +142,9 @@ From TODO, CLAIMED, REVIEW or APPROVED:  --cancel--> CANCELLED
 **Generational claims** (C3, A8). Every `claim` and `reassign` raises the task's
 generation; an operation carrying an older generation is rejected even if the old agent
 comes back. A claim is kept alive by `heartbeat` (sent by `next` while the agent waits), not
-by presence in the room. A claim without a heartbeat for 30 minutes is marked stale; the
-orchestrator or owner decides whether to reassign it.
+by presence in the room. `chat.mjs wait` sends none, so a claim held through a long sleep there
+shows as stale. A claim without a heartbeat for 30 minutes is marked stale; nothing happens to it
+automatically, and the orchestrator or owner decides whether to reassign it.
 
 ## 6. Test evidence
 
@@ -153,9 +154,9 @@ Evidence is always produced by the CLI.
    can verify at once. The checkout is cleaned of ignored files too (`node_modules`, build
    output), so `check.mjs` installs what it needs on every run and nothing from an earlier run
    can make a test pass.
-2. It runs the test command with a 10-minute limit and checks every SVG in the checkout:
-   an entity outside the five XML entities, or a file without an `<svg>` element, fails
-   the run.
+2. It runs the test command with a 10-minute limit, fixed for every project, and checks every SVG
+   in the checkout: an entity outside the five XML entities, or a file without an `<svg>` element,
+   fails the run. A run past the limit counts as failed, also at close.
 3. It records the commit, charter version, command, exit code, duration, timeout, the last
    output, tool versions and the caller.
 

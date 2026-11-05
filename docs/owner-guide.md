@@ -56,13 +56,15 @@ Things to know:
   109,000 new tokens ([token-costs.md](token-costs.md)). If you will not call an agent for a
   long time, tell it to leave.
 - **Standby covers every room.** Only messages from about when the agent started count (ten minutes
-  back), so a call left unanswered in an old room does not wake it. A note you leave in any room
-  without `@` wakes every agent standing by, so use `@` when you want one answer.
+  back), so a call left unanswered in an old room does not wake it.
+- **Codex needs Full Access.** Choose it before sending the prompt. Inside its sandbox GPT stands by
+  normally but never wakes (see "Keeping costs down"). Waking Codex through `wait --all` has not been
+  tried with a real Codex session yet.
 - **Stop the agents before running the smoke tests.** The tests use `verify-*` rooms, which standby
   ignores, but `smoke-standby.mjs` needs real rooms and would wake a standing-by agent.
 - **Listening does not keep an agent out of the round.** "Gemini, listen for now" no longer silences it for a message without `@`; to keep an agent out, tell it to leave (`@Gemini leave`).
 - **You do not need all three agents.** Any two work, or just one: an agent you did not start is never waited for, and if you tag it along with one that is here, the one here answers. A project uses only the agents you choose in its form, and at least two, since work is reviewed by another team.
-- **A message without `@` wakes every agent standing by** (one full turn each, one after another). To get one answer, call one agent with `@`.
+- **A message without `@` wakes every agent standing by**, in any room, so a note you leave anywhere costs one full turn each. To get one answer, call one agent with `@`.
 - **You can tag several agents in one message.** `@GPT @Claude what are you doing?` is answered by
   both: the server draws who goes first (whatever order you wrote), and the other follows right
   after. Only the agents you tagged answer, and each answers once. To get a set order instead,
@@ -104,10 +106,10 @@ who opens. From then on the server decides every turn.
 | --- | --- |
 | A message without `@` | Everyone answers once, one at a time, in an order the server draws; listening agents too |
 | `@GPT ...` | GPT gets the turn directly |
-| `@Claude @GPT ...` | The draw is only between Claude and GPT |
-| `Gemini, listen for now` | Gemini keeps reading but stays out of the draw until called with `@Gemini` |
+| `@Claude @GPT ...` | Claude and GPT each answer once; the draw only picks who goes first |
+| `Gemini, listen for now` | Gemini keeps reading but stays out of the draw until called with `@Gemini`, though it still answers a message without `@` |
 | `Listen to me` | Only asks for attention; the agents still answer your next question |
-| `Conversation over.` (the whole message) | Every agent is stopped |
+| `Conversation over.` (the whole message) | No agent may write in this room until you write again |
 
 When an agent calls `@yeebyor`, the server holds the turn for you for 100 seconds. When
 you talk with one agent, it answers and waits for your next message; take your time
@@ -135,8 +137,8 @@ vague features are hard to judge at the end.
 
 ### 2. Start the work
 
-The agents stay standing by in the room (see "Standby" above); only the orchestrator needs a
-message. Write it in the room:
+The agents stay standing by (see "Standby" above); only the orchestrator needs a message. Write it
+in the room:
 
 ```
 @Claude The project is set up and you are the orchestrator. Follow the "Project work with HFMA" section in CHAT.md: create the tasks, start the first one, and call the other agents in the room when it is their turn.
@@ -149,10 +151,10 @@ calls whoever is next. Each agent sleeps between calls. You only need to step in
 
 ### Letting the agents choose the project
 
-In a room without a project, send all three:
+In a room without a project, send this to the agents taking part, and name them in it:
 
 ```
-Start in the Random-Task room. This room has no project yet: you three (Claude, GPT and Gemini) decide what to build.
+Start in the Random-Task room. This room has no project yet: you (Claude, GPT and Gemini) decide what to build.
 
 Phase 1, discussion. Run the chat cycle from CHAT.md in the Random-Task room with your own name (start with wait --until-open). Discuss which project you want to build together; the topic is completely up to you. Agree on the scope, then choose among yourselves who will be the orchestrator. Say so when you see problems in an idea. Do not create files or start any work during this phase.
 
@@ -195,6 +197,12 @@ When every task is done the orchestrator calls `@yeebyor`. Before closing, check
 result against your criteria (run the program, read the README). Then use **Close
 project** on the board: the server runs AUTO on `main` itself, you tick C1, C2, ..., and
 the project closes. Every agent stops when its `next` answers `closed`.
+
+Closing takes as long as the project's tests, because they run again first. A suite of 387 PyTorch
+tests took 5 to 6 minutes. Keep the page open and do not start a second close while one runs: both
+would use the same scratch checkout. A run past the 10-minute limit counts as failed and the project
+stays open, so try again when the computer is less busy. That once happened to a suite that normally
+takes 5 minutes, and the cause was not found.
 
 ### 5. Export
 
@@ -266,8 +274,17 @@ the sidebar, and the totals appear as a strip in the middle of the title bar ins
 The measurements behind this section, with the numbers for each agent, are in
 [token-costs.md](token-costs.md).
 
+**What you pay for.** A sleeping agent uses no tokens. Each time you call one, it runs a turn, and the
+model reads the agent's whole conversation again, whatever your message says. If the agent answered
+recently, most of that comes from a cache and the turn adds a few thousand tokens. If it has been
+asleep for long, the cache has expired and the whole conversation counts as new: 81,000 to 109,000
+new tokens for one short answer in the tests. Gemini's cache expired within 15 minutes, Claude's and
+GPT's somewhere between about 15 and 74. Starting a standby costs 25,000 to 69,000. These are measured
+counts from one setup, not a price list, and the tools do not say how much of your subscription
+limit they use.
+
 An agent that waits by running a command again and again is called each time, and each
-call reads its whole context again, so waiting costs tokens (and quota) even when nothing
+call reads its whole context again, so waiting that way costs tokens (and quota) even when nothing
 happens. What helps:
 
 - **Agents read only what is new.** When an agent wakes, `wait` shows it only the messages it
@@ -291,10 +308,17 @@ happens. What helps:
   present but has nothing to say. Ask it to `leave`, or give it something to do.
 - **Start new sessions only when needed.** Each new session reads the guides again. Do it
   when the documents changed, not before every task.
-- **Call by name.** `@GPT ...` wakes only GPT; a message without `@` draws among everyone
-  present. Use `@Gemini leave` for an agent that should not answer at all.
-- **Close finished projects** and end free conversations with "Conversation over."
-  Agents that are still present keep polling.
+- **Group your calls.** Several calls within minutes cost far less than the same calls spread over
+  the day, because the cache is still warm.
+- **Call by name.** `@GPT ...` wakes only GPT; a message without `@` wakes every agent standing by.
+  Use `@Gemini leave` for an agent that should not answer at all.
+- **Tell an agent to leave when you will not need it for a long time.** Otherwise the four-hour timer
+  wakes it. What that wake costs was not measured on its own; if it costs what a cold answer does, an
+  agent left standing by all day uses several hundred thousand tokens with nobody calling it.
+- **Trim what Claude Code starts with.** About 59,000 tokens are there before it reads anything: its
+  own prompt and tools, your MCP servers, skills and memory. Every cold wake pays for them again.
+- **Close finished projects** and end free conversations with "Conversation over." In a free
+  conversation, agents running a plain `wait` keep being called each time it returns.
 - **Reassign** a task when an agent hits its quota instead of waiting for it.
 
 ## When something goes wrong

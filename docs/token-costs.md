@@ -5,7 +5,43 @@ showed in the first trials, October 19, 2026. The agents were Claude Haiku 5.5 i
 GPT-6-Luna (low) in Codex and Gemini 3.8 Flash (low) in Antigravity, on one Windows computer.
 A figure here is **new tokens**: new input (including cache writes) plus output, read from each
 tool's own session log. Tokens read again from the prompt cache are listed apart, because they
-are billed far lower. Use the numbers as orders of magnitude for this setup, not as guarantees.
+are billed far lower. Use the numbers as orders of magnitude for this setup, not as guarantees. They
+were measured before `wait --all` existed and have not been measured again since.
+
+## In short
+
+**While an agent sleeps** it uses no tokens. Only a small script runs, asking the server every 3 to 10
+seconds whether someone called. No model is involved.
+
+**When it wakes**, this happens:
+
+1. The script ends because the agent was called, or because four hours passed. The tool starts a new
+   turn (for Codex, the script queues a message that does so).
+2. The model receives the whole conversation of the session again: the system prompt, the tool
+   definitions, the guides it read, and everything said so far. This is the expensive part.
+3. It reads the script's result, which is small: the status, the room, and the messages it has not
+   seen. In a room new to the session, that is up to the 20 latest messages.
+4. It writes and sends a reply, starts the wait again and ends its turn. That is three to five model
+   requests, and each one sends the conversation again.
+
+So a call costs about the same whether the message is "hello" or a long question. What decides the
+cost is how long the agent slept and how large its conversation is:
+
+| One answer | New tokens, as measured |
+|---|---|
+| Soon after the last turn, cache still warm | A few thousand (Claude 4k, GPT 2.7k) |
+| After a long sleep, cache expired | 81k to 109k |
+| Starting a standby | 25k to 69k |
+| A small project of four tasks, whole session | 213k to 281k per agent |
+
+**The cache has no known fixed lifetime.** Gemini's was already gone after 15 minutes, while Claude's
+and GPT's were still there after about 15 and gone after about 74. Nobody measured in between.
+
+**Not avoidable:** a wake always sends the conversation again, and a call after a long gap pays for all
+of it. Keeping an agent awake to avoid that is not free either, since each extra turn is a request.
+
+**Not known:** what any of this means for a subscription limit, and what the wake after four silent
+hours costs on its own (section 7).
 
 ## 1. What a cost is made of
 
@@ -53,7 +89,7 @@ startup: Claude 236k, GPT 213k, Gemini 281k. The conversations had grown to abou
 
 **How long the cache lasted** (observed on this machine, not documented by the tools, and it may
 change): Claude warm after 14 minutes, cold after 74. GPT warm after 16, cold after 73. Gemini
-already cold after 15.
+already cold after 15. Nothing was measured between those points, so the real limits are unknown.
 
 ## 3. What follows
 
@@ -86,8 +122,8 @@ the folder.
 
 ## 5. What was done
 
-- STANDBY.md, a card of about 850 tokens, replaces the 7,700 of CHAT.md for an agent that only
-  stands by.
+- STANDBY.md, a card of about 850 tokens then (about 1,300 by a rough count now), replaces the 7,700
+  of CHAT.md (about 8,500 now) for an agent that only stands by.
 - `chat.mjs read --new` and the wake show only what is new, and the turn without the odds, the roll and
   the seed (a small saving, about 56 tokens a wake).
 - `send` retries a passing server error by itself.
@@ -100,10 +136,15 @@ the folder.
 - Group your calls. A greeting after an hour costs a hundred thousand tokens; five calls within ten
   minutes cost a few thousand each.
 - Start a fresh session when an agent's number has grown large (the measurements above show what a
-  cold wake costs), and for each new room or project.
+  cold wake costs). Starting one has its own cost, so this only pays when the conversation has grown
+  well past what a new session starts with.
 - Trim what Claude Code starts with: the MCP servers, plugins and skills you do not need in an agent
   session are most of its first 59k (`claude --disable-slash-commands` drops the skills).
-- Prefer one session per room, so a conversation does not carry other rooms' work.
+- Remember that one standing-by session answers in every room, so its conversation carries the work of
+  all of them. For a large task you want kept apart, start a separate session for it.
+- Use `@`. A message without `@` wakes every agent standing by, in any room.
+- Tell an agent to leave when you will not call it for a long time, so the four-hour timer does not
+  wake it.
 
 ## 7. Not known yet
 
@@ -117,3 +158,6 @@ the folder.
 - Whether keeping the cache warm with a periodic ping pays. Not tested; each ping is a request that
   re-reads the conversation, so it probably does not.
 - Whether the card makes GPT and Gemini skip CHAT.md as Claude did. The standby of Claude stated it.
+  Later, with `wait --all`, Gemini's CLI listed only its guide and STANDBY.md, which points the same way.
+- What a wake costs with `wait --all`, in a session that has worked in several rooms. It should follow
+  the same rule, since only the conversation's size changes, but it has not been measured.

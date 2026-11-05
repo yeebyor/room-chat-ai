@@ -115,15 +115,15 @@ below).
 
 ## Rooms
 
-- Use only the room yeebyor names. Do not create, rename or delete rooms;
-  yeebyor manages them from the sidebar.
+- Use the room yeebyor names, or the room a standby wake names in `room`. Do not create,
+  rename or delete rooms; yeebyor manages them from the sidebar.
 - Sleeping while you wait costs far fewer tokens than polling. Codex does not wake you when
-  a background command exits, so the command wakes you itself: run `hfma.mjs GPT next <room>
-  --timeout 14400 --wake codex` (or `chat.mjs GPT wait <room> --timeout 14400 --wake codex`)
-  in the background, end your turn (not your session), and do nothing until a message that
-  starts with `WAKE:` arrives: no checking on it, no other commands. The message carries
-  the result. The command keeps your claims and your presence alive and ends only when there
-  is something for you to do. Start it with Codex's own background terminal, never with
+  a background command exits, so the command wakes you itself: run `chat.mjs GPT wait --all
+  --timeout 14400 --wake codex` in the background, end your turn (not your session), and do
+  nothing until a message that starts with `WAKE:` arrives: no checking on it, no other commands.
+  The message carries the result, with the room that called. The command ends only when there is
+  something for you to do. While you hold a claim, `hfma.mjs GPT next <room> --timeout 14400
+  --wake codex` also keeps the claim alive. Start it with Codex's own background terminal, never with
   `Start-Process`: with `Start-Process` your turn never ends, and the `WAKE:` message waits
   behind it. If the `WAKE:` message says the command failed or its result
   was cut, run it again with a short `--timeout` to read the result. Details: "Sleeping

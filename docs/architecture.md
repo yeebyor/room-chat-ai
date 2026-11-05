@@ -91,9 +91,11 @@ written before newer messages arrived is rejected.
 
 An agent costs tokens only while it runs a turn, so it waits by sleeping:
 `chat.mjs <Name> wait --all --timeout 14400` runs in the background and the agent ends
-its turn. The command polls the server (3 seconds for two minutes, then 10) and reports the
-agent's presence, and it exits only when the agent is called; the tool wakes the agent when
-the command exits.
+its turn. The command polls the server (3 seconds for two minutes, then 10) and reports that the
+agent stands by, and it exits when the agent is called or after four silent hours; the tool wakes
+the agent when the command exits. A wake is a full turn in which the model reads the session's whole
+conversation again, so it can be cheap or cost tens of thousands of tokens
+([token-costs.md](token-costs.md)).
 
 - Claude Code and Antigravity wake on a background command's exit. Codex does not, so
   `--wake codex` makes the script queue a `WAKE:` message into the agent's own session
@@ -114,13 +116,14 @@ the command exits.
 - There is one standby wait per agent, enforced with an exclusive lock file in the
   temp folder. A passing server error (5xx) is retried for about five minutes before `wait`
   gives up.
-- The same record notes when the session joined the room, for the token display in the title
-  bar (`src/lib/usage.mjs`, `GET /api/usage`). The route adds up the model requests in the log
+- The same record notes when the session joined the room, for the session tokens in the sidebar
+  (`src/lib/usage.mjs`, `GET /api/usage`). The route adds up the model requests in the log
   each tool keeps on this computer. It counts from the session's first request when the session
-  joined within ten minutes of it (it was opened for this room, so starting up is part of the
-  room's cost), otherwise from the join. For a session whose join was never recorded, the join is
-  the first message in the room that names the agent or comes from it. Only the counts and their
-  times are read, never the text.
+  joined within ten minutes of it (it was opened for this room, so starting up is included),
+  otherwise from the join. For a session whose join was never recorded, the join is
+  the first message in the room that names the agent or comes from it. A log does not say which room
+  a request was for, so a session that worked in several rooms shows its work in each of them. Only
+  the counts and their times are read, never the text.
 - A record per agent, room and session (also in the temp folder) remembers the last message
   an agent was shown, so a woken agent only sees what is new. With `--wake` the background
   run does not mark messages as seen, because the woken agent reads them with its next `wait`.
@@ -208,7 +211,7 @@ precision. Room names are 1 to 50 ASCII letters, digits, `-` or `_`.
 | --- | --- |
 | `src/app/page.tsx` | The chat page, export, owner actions |
 | `src/app/room-sidebar.tsx` | Rooms and the per-room menu |
-| `src/app/usage-bar.tsx`, `api/usage/route.ts` | The token display: the right sidebar, and a strip in the title bar on narrow windows |
+| `src/app/usage-bar.tsx`, `api/usage/route.ts` | Agent status and session tokens: the right sidebar, and a strip in the title bar on narrow windows |
 | `src/app/project-setup.tsx`, `charter-editor.tsx` | Setup form and charter editor |
 | `src/app/task-board.tsx` | The task board and owner buttons |
 | `src/lib/chat-server.ts` | Auth, validation, RPC calls, error mapping |
@@ -219,5 +222,6 @@ precision. Room names are 1 to 50 ASCII letters, digits, `-` or `_`.
 | `src/lib/project-export.ts` | The project record export |
 | `scripts/chat.mjs`, `scripts/hfma.mjs` | The agents' command line tools |
 | `scripts/smoke-*.mjs` | End-to-end tests against a running app |
+| `scripts/test-local.mjs`, `.github/workflows/test.yml` | `npm test`: the schema and every smoke test on an in-memory Postgres, locally and on every push |
 | `supabase/schema.sql` | The complete schema |
 | `supabase/upgrades/` | Past upgrade steps, in order; not needed for a fresh install |

@@ -27,6 +27,8 @@ const fullTurn = {
 // Sends: the first `failPosts` answer 503 (Supabase cannot be reached), `rejectPosts` answers 409.
 const posts = [];
 let lastPresence = null;
+let lastBefore = null;
+let crowded = false;
 let failPosts = 0;
 let rejectPosts = false;
 const server = createServer((req, res) => {
@@ -43,8 +45,11 @@ const server = createServer((req, res) => {
     });
     return;
   }
-  lastPresence = new URL(req.url, 'http://localhost').searchParams.get('presence');
-  res.end(JSON.stringify({ room, messages, count: messages.length, turn: fullTurn }));
+  const query = new URL(req.url, 'http://localhost').searchParams;
+  lastPresence = query.get('presence');
+  lastBefore = query.get('before_id');
+  const list = crowded ? Array.from({ length: 100 }, (_, i) => ({ ...messages[0], id: String(i + 1) })) : messages;
+  res.end(JSON.stringify({ room, messages: list, count: list.length, turn: fullTurn }));
 });
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 
@@ -71,12 +76,22 @@ try {
   assert.equal(record().seen, '7');
   assert.deepEqual((await run(['wait', room, '--timeout', '5'])).json().messages, [], 'the second read shows nothing new');
 
-  // read --new is the same for an agent that wants to answer: what is new and the turn. Plain read is the whole room.
+  // read --new is the same for an agent that wants to answer: what is new and the turn. Plain read is the latest 100.
   writeFileSync(seenFile, JSON.stringify({ session: null, seen: '6', at: Date.now() }));
   const fresh = (await run(['read', room, '--new'])).json();
   assert.deepEqual(fresh.messages.map((m) => m.id), ['7']);
   assert.equal(fresh.turn.last_id, '7');
-  assert.equal((await run(['read', room])).json().messages.length, 3, 'plain read prints the whole room');
+  const small = (await run(['read', room])).json();
+  assert.equal(small.messages.length, 3, 'plain read prints a small room whole');
+  assert.equal(small.older_not_shown, undefined);
+  // A room with more than a page says so and pages back, without moving what the agent has seen.
+  crowded = true;
+  assert.match((await run(['read', room])).json().older_not_shown, /read .* --before 1/);
+  writeFileSync(seenFile, JSON.stringify({ session: null, seen: '3', at: Date.now() }));
+  await run(['read', room, '--before', '1']);
+  assert.equal(lastBefore, '1');
+  assert.equal(record().seen, '3', 'paging back does not mark the room as seen');
+  crowded = false;
 
   // A long wait (ten minutes or more) always listens, even without --listen; a short one stays active.
   await run(['wait', room, '--timeout', '600']);
@@ -148,4 +163,4 @@ assert.match(handoffReminder('integrate', { ...base, me: 'Claude', ready: [{ id:
 assert.match(handoffReminder('integrate', { ...base, me: 'Claude', ready: [] }), /every task is done, call @yeebyor to assess/);
 for (const kind of ['submit', 'approve', 'reject', 'integrate']) assert.ok(!handoffReminder(kind, { ...base, team: 'Claude' }).includes(String.fromCharCode(0x2014)), 'no em dash');
 
-console.log(JSON.stringify({ status: 'PASS', checks: 'compact turn, wait --wake leaves messages unseen, delta reads, read --new, a long wait always listens, send retries a passing server error with the same client_id, join record per session, hand-off reminders' }));
+console.log(JSON.stringify({ status: 'PASS', checks: 'compact turn, wait --wake leaves messages unseen, delta reads, read --new, read says when older messages exist and pages back, a long wait always listens, send retries a passing server error with the same client_id, join record per session, hand-off reminders' }));

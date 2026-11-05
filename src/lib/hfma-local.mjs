@@ -29,12 +29,14 @@ export const identity = (who) => ['-c', `user.name=${who} (HFMA)`, '-c', `user.e
 export const worktrees = (project) => `${project}.wt`;
 export const teamTree = (project, team) => join(worktrees(project), team);
 
-// One scratch checkout per caller, so two agents can verify at the same time.
+// One scratch checkout per caller, so two agents can verify at the same time. -x also removes
+// ignored files: a build output or node_modules left by an earlier run could make a test pass
+// on a commit that does not have them. So every run has to install what it needs.
 export function scratch(project, commit, who) {
   const path = join(worktrees(project), `_verify-${who}`);
   if (!existsSync(path)) git(project, 'worktree', 'add', '--detach', path, commit);
   git(path, 'checkout', '--detach', '--force', commit);
-  git(path, 'clean', '-fd');
+  git(path, 'clean', '-fdx');
   return path;
 }
 

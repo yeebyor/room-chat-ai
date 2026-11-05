@@ -232,6 +232,10 @@ if (command === 'charter') {
       ?? pick('review', tasks.filter((task) => task.status === 'REVIEW' && task.team !== me), 'Another team\'s task is waiting for verify and review.')
       ?? pick('work', mine.filter((task) => task.status === 'CLAIMED'), 'You hold this task: continue, commit, then submit.')
       ?? pick('claim', mine.filter((task) => task.status === 'TODO' && task.depends_on.every(done)), 'This task is ready to claim.')
+      // Dependencies cannot change, so a task that needs a cancelled one can never start.
+      ?? (orchestrator ? pick('dependency_cancelled', tasks.filter((task) => task.status === 'TODO'
+        && task.depends_on.some((id) => tasks.find((other) => other.id === id)?.status === 'CANCELLED')),
+        'This task depends on a cancelled task, so it can never be claimed. Cancel it with a reason, and create a new task without that dependency if the work is still needed.') : null)
       ?? (orchestrator && !tasks.length ? { action: 'plan', why: 'No tasks yet: announce the split in the room, then create tasks that follow the charter.' } : null)
       // A project with an open decision conflict cannot close yet, so it is not all done.
       ?? (orchestrator && tasks.length && !conflicts.length && tasks.every((task) => ['DONE', 'CANCELLED'].includes(task.status))
@@ -372,7 +376,9 @@ if (command === 'charter') {
   }
   // 2. Files outside the team's paths wait for yeebyor unless an exception exists.
   const main = git(project, 'rev-parse', 'main');
-  const changed = git(project, 'diff', '--name-only', `${main}...${task.approved_hash}`).split('\n').filter(Boolean);
+  // --no-renames: a moved file must count at its old path too, or moving another team's file into
+  // your own folder would report only the new path and pass.
+  const changed = git(project, 'diff', '--name-only', '--no-renames', `${main}...${task.approved_hash}`).split('\n').filter(Boolean);
   const allowed = (charter.ownership[task.team] ?? []).map(globRegex);
   const outside = changed.filter((file) => !allowed.some((pattern) => pattern.test(file)));
   if (outside.length && !task.exception) {

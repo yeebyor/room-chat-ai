@@ -33,6 +33,7 @@ step before it was applied.
 | 21 | `unaddressed-round.sql` | A message from yeebyor with no @agent is answered by every present or listening agent, one at a time |
 | 22 | `project-handoff.sql` | In a project room an agent may call another agent with @name without holding the turn |
 | 23 | `named-round.sql` | A message from yeebyor that tags several agents is answered by each of them, one at a time |
+| 24 | `hfma-closed-evidence.sql` | A passing run must be of the charter's test command; a closed project refuses evidence, `main_report`, `main_set`, unblock and exception |
 
 When you change the schema, edit `../schema.sql` and add the matching upgrade script
 here, so both stay in step.

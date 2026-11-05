@@ -31,8 +31,9 @@ CLI and violations are detected.
 **Design decisions.**
 
 1. Every project is its own git repo, separate from any other repo in the work folder.
-2. Tests and merges are run by the CLI, which records the raw results in the database.
-   They are never claims typed by an agent.
+2. Tests and merges are run by the CLI, which records the raw results in the database, so
+   an agent following the protocol never types a claim. The database checks that the record
+   exists and fits; it cannot see that the run happened (section 6).
 3. Work status lives in the database. A chat message saying "done" changes nothing.
 
 **Not built, on purpose.** Token budgets (a project's token use cannot be estimated, and
@@ -149,8 +150,9 @@ orchestrator or owner decides whether to reassign it.
 Evidence is always produced by the CLI.
 
 1. The CLI checks out the exact commit in the caller's own scratch worktree, so two agents
-   can verify at once. Uncommitted dependencies are not there, so `check.mjs` installs what
-   it needs.
+   can verify at once. The checkout is cleaned of ignored files too (`node_modules`, build
+   output), so `check.mjs` installs what it needs on every run and nothing from an earlier run
+   can make a test pass.
 2. It runs the test command with a 10-minute limit and checks every SVG in the checkout:
    an entity outside the five XML entities, or a file without an `<svg>` element, fails
    the run.
@@ -167,6 +169,11 @@ Evidence is always produced by the CLI.
 A passing run proves the tests ran, not that they are right. That is why an approval needs
 notes saying what the reviewer checked and which criteria it covers (A4).
 
+The database accepts a run only if it passed, on that commit, by that actor, with the charter's
+test command. It takes the exit code as sent: an agent calling the API by hand could record a
+run that never happened, and `merge_hash` and `ownership_ok` are taken as sent in the same way.
+That stops a mistake, not a cheat, which fits the threat model.
+
 ## 7. Integration and file ownership
 
 `hfma.mjs integrate <task>`, in order:
@@ -174,7 +181,7 @@ notes saying what the reviewer checked and which criteria it covers (A4).
 1. The team branch tip must still be the approved commit; if it moved, the approval lapses
    and the task goes back to `CLAIMED`.
 2. Files changed outside the team's `ownership` paths block the task until the owner
-   grants an `exception` (A1).
+   grants an `exception` (A1). A moved file counts at its old path as well as its new one.
 3. The candidate is merged onto `main` in a scratch checkout and the tests run on the
    merged result. A conflict or a failing run sends the task back to `CLAIMED`.
 4. The merge is recorded only if `main` is still the one it was built on (the database
@@ -240,6 +247,7 @@ answers one action:
 | `review` | Another team's task waits for verify and review, with `previous_feedback` if any |
 | `work` | It holds a claimed task, with `feedback` if any |
 | `claim` | A task of its team is ready |
+| `dependency_cancelled` | (Orchestrator) A task depends on a cancelled task and can never start: cancel it, and create a new one if the work is still needed |
 | `plan` | (Orchestrator) No tasks yet |
 | `follow_up` | (Orchestrator) Findings arrived after a task was approved |
 | `all_done` | (Orchestrator) Every task is done: call `@yeebyor` |
@@ -264,7 +272,8 @@ Only the owner closes, and only when every task is `DONE` or `CANCELLED`, `main`
 project folder are consistent, no decision conflict is open, every `command` criterion of
 the latest charter passes on `main` (the server runs it), and the owner marks every
 `owner` criterion met. Leaders, the orchestrator included, cannot declare a project
-finished.
+finished. A closed project stays as it was closed: no more tasks, evidence, notes, exceptions or
+changes to the recorded `main`.
 
 **Audit** (G5, A9). Every state change writes one event in the same transaction. The event
 log can only be appended to through database functions; it can still be deleted through
@@ -281,7 +290,7 @@ charter version, and each commit's subject, author and changed files read from g
 |---|---|---|
 | I1 | Only the owner changes the charter, grants exceptions and closes the project | database |
 | I2 | Task operations follow section 5, by an entitled actor, with the active generation | database |
-| I3 | Approval comes only from another team, for one commit, with the reviewer's own passing run | database |
+| I3 | Approval comes only from another team, for one commit, with the reviewer's own passing run | database for the record; the CLI for the run itself |
 | I4 | `main` advances only through `integrate`, for an approved commit, on the current `main`, with tests passing on the merged result and files inside the team's paths or an exception | CLI and database; violations detected |
 | I5 | A task cannot be submitted while a delegation is open | database |
 | I6 | Every state change has an audit event in the same transaction | database |

@@ -127,6 +127,9 @@ node --env-file=.env.agent-claude.local scripts/chat.mjs Claude send general --f
 node --env-file=.env.agent-claude.local scripts/chat.mjs Claude leave general
 ```
 
+`read` prints the latest 100 messages. When it says `older_not_shown`, page back with
+`read general --before <id>`.
+
 1. Run `wait`. It checks the room every 3 seconds, reports your presence, then
    prints `status`, `turn` and the messages when it is your turn, and only a short
    `waiting` line otherwise. The messages are the ones you have **not seen yet** in this
@@ -196,6 +199,7 @@ keeping your claims alive, then prints one `action`:
 | `work` | You hold this task: continue, commit, then `submit <id>`. If `feedback` is listed, address every item first |
 | `claim` | Your task is ready: `claim <id>` |
 | `waiting` (exit 2) | Nothing to do yet. **Sleep until someone calls you** (see "Hand-offs in a project"). This does not mean you are done |
+| `dependency_cancelled` | (Orchestrator) A task depends on a cancelled task, so it can never be claimed: cancel it with a reason, and create a new task without that dependency if the work is still needed |
 | `follow_up` | (Orchestrator) A reviewer added findings after a task was approved: create a follow-up task for them, or answer with `note <task>` saying why no change is needed |
 | `all_done` | (Orchestrator) Every task is done: call `@yeebyor` to assess |
 | `closed` (exit 3) | yeebyor closed the project: stop |

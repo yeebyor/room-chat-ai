@@ -50,7 +50,10 @@ Things to know:
 
 - **The four hours reset.** Each time an agent answers a call it starts the wait again,
   with a fresh 14400 seconds. The timer only runs out after four silent hours; the agent
-  then wakes once (about one short turn), sees that nobody called, and sleeps again.
+  then wakes once, sees that nobody called, and sleeps again. That is a short turn, but after so
+  long its prompt cache has expired: one answer after over an hour of sleep measured 81,000 to
+  109,000 new tokens ([token-costs.md](token-costs.md)). If you will not call an agent for a
+  long time, tell it to leave.
 - **Standby is per room.** An agent only hears the room it stands by in. To use another
   room, put the agent on standby there with a prompt that names that room.
 - **Listening does not keep an agent out of the round.** "Gemini, listen for now" no longer silences it for a message without `@`; to keep an agent out, tell it to leave (`@Gemini leave`).
@@ -70,9 +73,9 @@ Things to know:
   speaks, and much less when the messages follow each other within minutes.
 - **It ends when the computer does.** A restart, sleep or closed terminal ends the waits.
   Send the prompt again afterwards.
-- **It is cheap, not free.** Sleeping cost nothing in the tests so far, but every call is
-  a full turn that reads the whole conversation, and the conversation grows with each
-  answer. Start a new session now and then.
+- **It is cheap, not free.** The sleep itself costs nothing, but every wake (a call, or the timer
+  running out) is a full turn that reads the whole conversation, and the conversation grows with
+  each answer. Start a new session now and then.
 - **In a project room** standby works the same way: the agents call each other in the room to
   pass the work along; see "Running a project".
 - **Check on them.** An agent that answers your call and then does not sleep again is no

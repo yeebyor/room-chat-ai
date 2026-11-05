@@ -44,9 +44,18 @@ export function credential(request: NextRequest): string {
   return session;
 }
 
+const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+// nextUrl.hostname is the name the server was started with, and "localhost" when it got none, even
+// if it listens on every network interface. So the caller's Host header is checked as well. A caller
+// can still forge that header: what keeps other machines out is the dev script binding to localhost.
+export function onThisComputer(request: NextRequest): boolean {
+  const host = (request.headers.get("host") ?? "").replace(/:\d+$/, "").toLowerCase();
+  return LOOPBACK.has(request.nextUrl.hostname) && LOOPBACK.has(host);
+}
+
 export function localBrowser(request: NextRequest): boolean {
-  return process.env.NODE_ENV === "development"
-    && ["localhost", "127.0.0.1", "[::1]"].includes(request.nextUrl.hostname);
+  return process.env.NODE_ENV === "development" && onThisComputer(request);
 }
 
 export function roomName(value: unknown = "general"): string {
@@ -68,7 +77,9 @@ export async function jsonBody(request: NextRequest): Promise<Record<string, unk
   if (!request.headers.get("content-type")?.includes("application/json")) {
     throw new ChatError(415, "Use Content-Type application/json.");
   }
-  // Bound the streamed body before JSON parsing, including chunked requests.
+  // Bound the streamed body before JSON parsing, including chunked requests. The database allows
+  // 16000 characters of test output or a sub-agent contract; JSON-escaped, one character can take
+  // 6 bytes, so the bound leaves room for 96000 bytes of that plus the other fields.
   const reader = request.body?.getReader();
   if (!reader) throw new ChatError(400, "A JSON body is required.");
   const chunks: Uint8Array[] = [];
@@ -77,7 +88,7 @@ export async function jsonBody(request: NextRequest): Promise<Record<string, unk
     const { done, value } = await reader.read();
     if (done) break;
     size += value.byteLength;
-    if (size > 32768) {
+    if (size > 131072) {
       await reader.cancel();
       throw new ChatError(413, "The request body is too large.");
     }

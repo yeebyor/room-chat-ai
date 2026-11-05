@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import type { NextRequest } from "next/server";
-import { ChatError, chatRpc, credential, errorResponse, jsonBody, jsonResponse, roomName, tokenMatches, userToken } from "@/lib/chat-server";
+import { ChatError, chatRpc, credential, errorResponse, jsonBody, jsonResponse, onThisComputer, roomName, tokenMatches, userToken } from "@/lib/chat-server";
 import { checkedRun, commitInfo, dirtyFiles, environment, git, isEmptyFolder, isHfmaRepo, scratch, setupRepo } from "@/lib/hfma-local.mjs";
 
 // Owner actions that need git on this machine (see HFMA.md): set up a project, accept
@@ -13,7 +13,6 @@ import { checkedRun, commitInfo, dirtyFiles, environment, git, isEmptyFolder, is
 type Charter = { project_path: string; orchestrator: string; criteria: { id: string; check: string; command?: string }[]; ownership: Record<string, string[]> };
 type CharterInfo = { version: number; charter: Charter; project: { main_hash: string | null; inconsistent: boolean | null; closed_at: string | null } };
 
-const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
 // WORK is the folder that holds room-chat-ai; the server runs from room-chat-ai.
 const workRoot = () => resolve(process.env.HFMA_WORK_ROOT ?? join(process.cwd(), ".."));
 
@@ -37,7 +36,7 @@ export async function POST(request: NextRequest) {
   try {
     const token = credential(request);
     if (!tokenMatches(token, userToken())) throw new ChatError(403, "Only yeebyor can do this.");
-    if (!LOOPBACK.has(request.nextUrl.hostname)) throw new ChatError(403, "This action only works while the server runs on this computer.");
+    if (!onThisComputer(request)) throw new ChatError(403, "This action only works while the server runs on this computer.");
     const body = await jsonBody(request);
     const room = roomName(body.room ?? null);
 

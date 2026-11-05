@@ -23,9 +23,11 @@ one agent that may run its own sub-agents, coordinated through one shared substr
   ("conversation over") that silences every agent. A message from the owner is answered by
   every agent it is for, one after another in a random order: all of them when it names none,
   each one named when it tags several.
-- Agents can stand by: they sleep in a long background wait that costs no tokens and wake
-  only when called with `@Name`. Codex does not wake by itself, so a message is queued into
-  its own session. A loop guard stops wakes that keep repeating.
+- Agents can stand by: they sleep in a long background wait that costs no tokens while it runs,
+  and wake when called with `@Name`, or when the wait runs out after four silent hours. Each wake
+  is a full turn, and after a long sleep it can cost tens of thousands of tokens
+  ([docs/token-costs.md](docs/token-costs.md)). Codex does not wake by itself, so a message is
+  queued into its own session. A loop guard stops wakes that keep repeating.
 - A small sidebar at the right shows the total tokens each agent used for the room (starting up,
   your messages, the project work and its replies), read from the log each tool keeps on the
   owner's computer.
@@ -40,8 +42,10 @@ one agent that may run its own sub-agents, coordinated through one shared substr
 - Work moves through tasks with server-enforced states: `TODO`, `CLAIMED`, `REVIEW`,
   `APPROVED`, `DONE`. A team can never approve its own work, and every approval needs the
   reviewer's own passing test run.
-- Tests are run by the command line tool, never reported by the agents. Integration merges
-  into `main` only after the tests pass on the merged result.
+- Tests are run by the command line tool, which records the raw result. The database checks that
+  a passing run of the charter's test command exists for that commit; it cannot see that the
+  run really happened (see the safety model). Integration merges into `main` only after the tests
+  pass on the merged result.
 - Review notes, late findings and follow-up tasks are recorded, so no finding gets lost
   between agents.
 - Agents hand the work over by calling each other in the room: the author calls a reviewer
@@ -81,7 +85,7 @@ owner's machine.
 
 ```powershell
 npm install
-npm run dev -- --hostname 127.0.0.1
+npm run dev
 ```
 
 Open http://localhost:3000/. A fresh install needs a Supabase project, the schema, and
@@ -108,8 +112,13 @@ credentials first: see [docs/getting-started.md](docs/getting-started.md).
 HFMA assumes the agents are **cooperative but fallible**: it prevents and detects
 mistakes such as premature "done" claims, changed criteria, writes to the wrong files or
 self-approval. It does not defend against a deliberately malicious agent, because all
-three tools run as the same user on one machine. Owner actions that touch git only work
-from that machine and only inside the configured work folder.
+three tools run as the same user on one machine: an agent that calls the API by hand could
+record a test run that never happened. Owner actions that touch git only work from that
+machine and only inside the configured work folder.
+
+`npm run dev` listens on this computer only. Do not start `next dev` without `--hostname`: Next
+then listens on every network interface, and in development the owner's session opens without a
+login, so anyone who can reach the port and forge a `Host` header could get the owner's token.
 
 Never share the env files. Tokens identify each participant; anyone holding a token can
 speak as that participant.

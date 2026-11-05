@@ -109,6 +109,9 @@ const failing = await evidence('GPT', a, 'submit', h1, 1);
 await refused(409, /passing submit evidence/, 'GPT', 'task_submit', { task: a, generation: 1, commit: h1, evidence: failing });
 const passing = await evidence('GPT', a, 'submit', h1);
 await refused(409, /passing submit evidence/, 'GPT', 'task_submit', { task: a, generation: 1, commit: hash(), evidence: passing });
+// A passing run of some other command is not a run of the charter's tests.
+const otherCommand = (await ok('GPT', 'evidence_add', { room, task: a, kind: 'submit', commit: h1, command: 'echo skipped', exit_code: 0, timed_out: false, duration_ms: 1, output: 'skipped' })).evidence;
+await refused(409, /charter test command/, 'GPT', 'task_submit', { task: a, generation: 1, commit: h1, evidence: otherCommand });
 
 // I5: no submit while a sub-agent delegation is open; results keep four sections.
 const child = (await ok('GPT', 'delegate', { task: a, generation: 1, label: 'penulis-tes', contract: 'Tulis tes untuk b/.' })).delegation;
@@ -214,10 +217,15 @@ await refused(409, /C2/, 'yeebyor', 'project_close', { room });
 assert.equal((await ok('yeebyor', 'project_close', { room, owner_criteria: ['C2'] })).closed, true);
 await refused(409, /closed this project/, 'Claude', 'task_create', { room, title: 'Setelah tutup', team: 'GPT' });
 await refused(409, /closed this project/, 'yeebyor', 'charter_set', { room, charter });
+// A closed project stays as it was closed: no more evidence, and the recorded main cannot change.
+await refused(409, /closed this project/, 'GPT', 'evidence_add', { room, task: a, kind: 'verify', commit: h1, command: 'npm test', exit_code: 0, timed_out: false, duration_ms: 1, output: 'ok' });
+await refused(409, /closed this project/, 'Gemini', 'main_report', { room, main_hash: hash() });
+await refused(409, /closed this project/, 'yeebyor', 'main_set', { room, main_hash: hash(), reason: 'Setelah tutup.' });
+await refused(409, /closed this project/, 'yeebyor', 'task_exception', { task: a, reason: 'Setelah tutup.' });
 
 // I6: every state change of task a left an event, in order.
 const detail = await ok('Gemini', 'task_get', { task: a });
-assert.deepEqual(detail.events.map((event) => event.op), ['create', 'claim', 'evidence_submit', 'evidence_submit', 'delegate',
+assert.deepEqual(detail.events.map((event) => event.op), ['create', 'claim', 'evidence_submit', 'evidence_submit', 'evidence_submit', 'delegate',
   'child_accepted', 'submit', 'evidence_verify', 'approve', 'evidence_integrate', 'integrate']);
 assert.equal(detail.reviews.length, 1);
 assert.equal(detail.delegations[0].status, 'accepted');
@@ -240,4 +248,4 @@ if (!process.env.KEEP_VERIFY_ROOMS) {
     assert.equal(removed.status, 200, `cleanup of ${name}: ${await removed.text()}`);
   }
 }
-console.log(JSON.stringify({ status: 'PASS', room, checks: 'I1 charter and close owner-only, hand-off call in a project room, decisions and conflicts, I2 transitions/roles/generations, I3 review gate, I5 open delegations, I6 events, main consistency, escalation, private tables' }));
+console.log(JSON.stringify({ status: 'PASS', room, checks: 'I1 charter and close owner-only, hand-off call in a project room, decisions and conflicts, I2 transitions/roles/generations, I3 review gate, evidence bound to the charter test command, a closed project stays closed, I5 open delegations, I6 events, main consistency, escalation, private tables' }));

@@ -823,14 +823,17 @@ begin
 end;
 $$;
 
--- A passing test run recorded by p_actor for this exact commit and kind.
+-- A passing run of the charter's test command, recorded by p_actor for this exact commit and kind.
+-- The database cannot see that the run really happened; scripts/hfma.mjs is what runs it.
 create function chat_private.hfma_passing(p_evidence bigint, p_task bigint, p_kind text, p_actor text, p_commit text)
 returns void language plpgsql stable set search_path = '' as $$
 begin
-  if not exists (select 1 from chat_private.evidence where id = p_evidence and task_id = p_task and kind = p_kind
-      and actor = p_actor and commit = p_commit and exit_code = 0 and not timed_out) then
+  if not exists (select 1 from chat_private.evidence e
+      join chat_private.charters c on c.room = e.room and c.version = e.charter_version
+      where e.id = p_evidence and e.task_id = p_task and e.kind = p_kind and e.actor = p_actor and e.commit = p_commit
+        and e.exit_code = 0 and not e.timed_out and e.command = c.body->>'test_command') then
     perform chat_private.hfma_fail('evidence', format(
-      'Needs passing %s evidence, recorded by you, for commit %s. Run it through scripts/hfma.mjs.', p_kind, p_commit));
+      'Needs passing %s evidence, recorded by you with the charter test command, for commit %s. Run it through scripts/hfma.mjs.', p_kind, p_commit));
   end if;
 end;
 $$;
@@ -940,6 +943,7 @@ begin
   when 'main_set' then
     perform chat_private.hfma_owner(v_sender);
     v_room := chat_private.hfma_room(p_args);
+    perform chat_private.hfma_open(v_room);
     perform chat_private.hfma_charter(v_room);
     v_commit := chat_private.hfma_hash(p_args, 'main_hash');
     v_reason := chat_private.hfma_text(p_args, 'reason', 2000);
@@ -949,6 +953,7 @@ begin
 
   when 'main_report' then
     v_room := chat_private.hfma_room(p_args);
+    perform chat_private.hfma_open(v_room);
     v_commit := chat_private.hfma_hash(p_args, 'main_hash');
     select * into v_project from chat_private.projects where room = v_room for update;
     if v_project.main_hash is null then
@@ -1018,6 +1023,7 @@ begin
   -- Raw test results from scripts/hfma.mjs. Agents never write these by hand.
   when 'evidence_add' then
     v_room := chat_private.hfma_room(p_args);
+    perform chat_private.hfma_open(v_room);
     v_charter := chat_private.hfma_charter(v_room);
     v_status := coalesce(p_args->>'kind', '');
     if v_status not in ('submit', 'verify', 'integrate', 'close') then
@@ -1197,6 +1203,7 @@ begin
   when 'task_unblock', 'task_exception' then
     perform chat_private.hfma_owner(v_sender);
     v_task := chat_private.hfma_task(p_args);
+    perform chat_private.hfma_open(v_task.room);
     v_reason := chat_private.hfma_text(p_args, 'reason', 2000);
     if p_op = 'task_unblock' and v_task.status <> 'BLOCKED' then
       perform chat_private.hfma_fail('status', format('The task status is %s, not BLOCKED.', v_task.status));
@@ -1488,9 +1495,6 @@ alter table chat_private.showcase_rooms enable row level security;
 create policy deny_direct_access on chat_private.showcase_rooms for all to anon, authenticated using (false) with check (false);
 revoke all on chat_private.showcase_rooms from public, anon, authenticated;
 
-insert into chat_private.showcase_rooms (name)
-select name from chat_private.rooms where name in ('general', 'Random-Task', 'Task-1', 'Task-2', 'Task-3');
-
 -- The body runs as the owner (SECURITY DEFINER) from chat_private, which the Data API does not
 -- expose; the public RPC below is a thin SECURITY INVOKER wrapper, like the chat_* functions.
 create function chat_private.showcase_read(p_room text)
@@ -1544,8 +1548,8 @@ revoke execute on function chat_private.showcase_read(text) from public, anon, a
 grant execute on function chat_private.showcase_read(text) to anon, authenticated;
 
 create function public.showcase_read(p_room text)
-returns jsonb language sql stable security invoker set search_path = '' as $
+returns jsonb language sql stable security invoker set search_path = '' as $$
   select chat_private.showcase_read(p_room);
-$;
+$$;
 revoke execute on function public.showcase_read(text) from public, anon, authenticated;
 grant execute on function public.showcase_read(text) to anon, authenticated;

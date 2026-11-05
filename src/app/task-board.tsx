@@ -209,7 +209,7 @@ const BADGE: Record<TaskStatus, string> = {
 
 const short = (hash: string | null) => hash?.slice(0, 7) ?? null;
 
-function TaskRow({ task, onAction }: { task: HfmaTask; onAction?: Action }) {
+function TaskRow({ task, cancelledDeps = [], onAction }: { task: HfmaTask; cancelledDeps?: number[]; onAction?: Action }) {
   // The commit that matters at each stage: merged, approved, then submitted.
   const commit = short(task.merge_hash ?? task.approved_hash ?? task.candidate);
   return (
@@ -232,6 +232,7 @@ function TaskRow({ task, onAction }: { task: HfmaTask; onAction?: Action }) {
         )}
         {task.exception && <span className="text-amber-200">exception</span>}
         {task.stale && <span className="text-amber-200">claim stale</span>}
+        {cancelledDeps.length > 0 && <span className="text-amber-200">can never start: {cancelledDeps.map((id) => `#${id}`).join(", ")} cancelled</span>}
       </div>
       {task.status === "BLOCKED" && task.block_reason && <p className="mt-1.5 text-xs text-red-200">{task.block_reason}</p>}
       {onAction && <TaskActions task={task} onAction={onAction} />}
@@ -448,7 +449,7 @@ export function TaskBoard({ board, onAction, onOrchestrator, onLocal }: { board:
         </div>
       )}
       {tasks.length ? (
-        <ul className="space-y-2">{tasks.map((task) => <TaskRow key={task.id} task={task} onAction={open ? onAction : undefined} />)}</ul>
+        <ul className="space-y-2">{tasks.map((task) => <TaskRow key={task.id} task={task} cancelledDeps={task.status === "TODO" ? task.depends_on.filter((id) => board.tasks.find((other) => other.id === id)?.status === "CANCELLED") : []} onAction={open ? onAction : undefined} />)}</ul>
       ) : (
         <p className="text-sm text-zinc-400">No tasks yet. The orchestrator creates them, or add one with New task.</p>
       )}

@@ -107,6 +107,10 @@ the folder.
 
 ## 7. Not known yet
 
+- What the wake costs when the four-hour timer runs out with nobody calling. `wait` exits, so the
+  agent runs a turn on an expired cache. It was not measured on its own; the closest figure is the
+  greeting after a long idle in section 2. If it costs about the same, an agent left standing by
+  all day uses several hundred thousand tokens, six wakes a day, without anyone calling it.
 - How much of a subscription limit these tokens use. The tools do not say, and cached reads may
   weigh very little or not.
 - Whether the cache lifetimes depend on the plan or the tool's settings. Measure again after an update.

@@ -40,6 +40,10 @@
 - The owner's git actions (`api/hfma/local`) accept the owner only, on a loopback host
   only, and folders only inside `HFMA_WORK_ROOT`. An existing folder must be empty or a
   repo HFMA created (first commit "HFMA setup").
+- "Loopback" (`onThisComputer` in `chat-server.ts`) reads the name the server was started with
+  and the caller's `Host` header. A route handler cannot see the connection itself, so a forged
+  header passes: what keeps other machines out is `npm run dev` binding to `localhost`. Next
+  started without `--hostname` listens on every interface and still calls itself `localhost`.
 - `public.showcase_read(room)` is the one function that needs no token. It only reads, and
   only answers for rooms listed in `chat_private.showcase_rooms`, so a room stays private
   until it is added there.
@@ -133,8 +137,10 @@ Guarantees, each enforced by a database function unless noted:
 
 - Only the owner writes the charter, grants exceptions and closes the project.
 - Claims carry a generation; an operation from an older generation is rejected.
-- `submit` needs a passing test run recorded by the holder on that exact commit.
+- `submit` needs a passing run of the charter's test command, recorded by the holder on that exact
+  commit. The database checks the record; only the CLI makes it true that the run happened.
 - `approve` needs a different team and the reviewer's own passing `verify` run.
+- A closed project takes no more tasks, evidence or changes to the recorded `main`.
 - `integrate` (CLI) merges in a clean checkout, tests the merged result, checks file
   ownership, and records the merge only if `main` has not moved since; then fast-forwards
   the project folder.
@@ -145,8 +151,8 @@ Guarantees, each enforced by a database function unless noted:
   follow-ups.
 
 **`next`** tells an agent what to do: it keeps the agent's claims alive and answers one action
-(`owner_message`, `resolve`, `integrate`, `review`, `work`, `claim`, `plan`, `follow_up`,
-`all_done`, `waiting`, `closed`). Agents wait by sleeping in the standby wait above and pass
+(`owner_message`, `resolve`, `integrate`, `review`, `work`, `claim`, `dependency_cancelled`, `plan`,
+`follow_up`, `all_done`, `waiting`, `closed`). Agents wait by sleeping in the standby wait above and pass
 the work along by calling each other in the room (CHAT.md, "Hand-offs in a project").
 Agents stop only at `closed`.
 

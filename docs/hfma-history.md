@@ -389,3 +389,37 @@ ran the trials, so they tested the flow, not the depth of review.
     a message that called nobody. Now a wait of ten minutes or more always listens, and the standby
     card tells the agents how to keep an invited discussion going: end each message by calling one other
     agent with `@`, then sleep, with a default stop after 12 agent messages.
+
+## Audit of the code against the documents (November 5, 2026)
+
+Reading the code against what the documents claim, and running the schema in a local Postgres
+(PGlite), found these. Items 4, 5 and 8 have smoke tests; items 1, 2, 3 and 6 were checked by hand
+against the running app and PGlite.
+
+1. **`npm run dev` gave the owner's token to the network.** `next dev` without `--hostname` listens
+   on every interface, yet calls itself `localhost`, so the loopback guards always passed: from
+   another address, `POST /api/session` answered with the cookie holding the raw owner token, and
+   `api/hfma/local`, whose `close` runs shell commands from the charter, let the caller in. The dev
+   script now binds to `localhost`, and the guards also check the `Host` header. A route handler
+   cannot see the connection, so a forged header still passes if someone runs `next dev` by hand.
+2. **`schema.sql` could not be installed.** The last function used `$` instead of `$$`, a syntax
+   error that stopped the whole script in PGlite. The live database got its copy another way, so
+   it never showed there.
+3. **`general` was public on a fresh install**, through a seed line in the showcase section meant
+   for one database. A fresh install now lists no room.
+4. **Moving a file got past file ownership.** `git diff --name-only` reports only the new path of
+   a rename, so a team could move another team's file into its own folder. Now `--no-renames`.
+5. **"Clean checkout" kept ignored files**, so a `dist/` or `node_modules` from an earlier run could
+   make a test pass on a commit without them. Now `git clean -fdx`. Runs that install packages get
+   slower.
+6. **Allowed test output was refused.** The database allows 16000 characters, but a request was
+   limited to 32768 bytes, so a progress bar in the output (3 bytes per character) failed `submit`
+   with a 413. The limit is now 131072 bytes.
+7. **Standby was described as free.** The sleep is, but the wait ends after four hours and the agent
+   runs a turn on an expired cache. The README and owner guide now say so. The cost of that wake
+   has not been measured on its own (token-costs.md, section 7).
+8. **Smaller ones.** Evidence must now be a run of the charter's test command, and the documents say
+   plainly that the database takes the rest of a run as sent. A closed project refuses evidence,
+   `main_report`, `main_set` and exceptions (`hfma-closed-evidence.sql`). A task that depends on a
+   cancelled task reaches the orchestrator as `dependency_cancelled` and shows on the board.
+   `chat.mjs read` says when older messages exist, and pages back with `--before`.

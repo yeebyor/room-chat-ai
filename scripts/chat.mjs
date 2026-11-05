@@ -8,12 +8,12 @@ import { guardedWake, wakeMessage } from '../src/lib/wake.mjs';
 
 const [sender, action = 'read', room = 'general', ...rest] = process.argv.slice(2);
 if (!['GPT', 'Claude', 'Gemini'].includes(sender) || !['read', 'send', 'turn', 'wait', 'leave'].includes(action)) {
-  throw new Error('Usage: chat.mjs GPT|Claude|Gemini read|turn|wait|send|leave [room] [message | --file path] --last-seen id [--client-id uuid] [--timeout seconds] [--listen] [--until-open] [--new]');
+  throw new Error('Usage: chat.mjs GPT|Claude|Gemini read|turn|wait|send|leave [room] [message | --file path] --last-seen id [--client-id uuid] [--timeout seconds] [--listen] [--until-open] [--new] [--before id]');
 }
 const flags = {};
 const words = [];
 for (let i = 0; i < rest.length; i++) {
-  if (['--file', '--client-id', '--timeout', '--last-seen', '--wake'].includes(rest[i])) flags[rest[i].slice(2)] = rest[++i];
+  if (['--file', '--client-id', '--timeout', '--last-seen', '--wake', '--before'].includes(rest[i])) flags[rest[i].slice(2)] = rest[++i];
   else if (['--listen', '--until-open', '--new'].includes(rest[i])) flags[rest[i].slice(2)] = true;
   else words.push(rest[i]);
 }
@@ -111,6 +111,7 @@ async function call(options = {}, limit, presence) {
   url.searchParams.set('room', room);
   if (limit) url.searchParams.set('limit', String(limit));
   if (presence) url.searchParams.set('presence', presence);
+  if (action === 'read' && flags.before) url.searchParams.set('before_id', flags.before);
   const response = await fetch(url, {
     ...options, headers: { Authorization: `Bearer ${token}`, ...options.headers }, signal: AbortSignal.timeout(15000),
   });
@@ -243,9 +244,11 @@ if (action === 'send') {
   console.log(JSON.stringify({ status: 'left', present: turn.present, next: turn.next }, null, 2));
 } else {
   // read --new: only what the agent has not seen (and the turn), like a wake shows it. Plain read
-  // prints the whole room, for an agent that wants to summarize it.
-  const body = await call({}, action === 'turn' ? 1 : flags.new ? 20 : undefined);
-  console.log(JSON.stringify(action === 'turn' ? compactTurn(body.turn) : flags.new ? forAgent('read', body) : body, null, 2));
-  // A full read means the agent has now seen everything up to here.
-  if (action === 'read') saveSeen(body.turn.last_id);
+  // prints the latest 100 messages, and says so when there may be older ones; --before <id> pages back.
+  const body = await call({}, action === 'turn' ? 1 : flags.new ? 20 : 100);
+  const older = !flags.new && action === 'read' && body.messages.length >= 100
+    ? { older_not_shown: `Only the 100 messages before this point are shown. For older ones run: chat.mjs ${sender} read ${room} --before ${body.messages[0].id}` } : {};
+  console.log(JSON.stringify(action === 'turn' ? compactTurn(body.turn) : flags.new ? forAgent('read', body) : { ...body, ...older }, null, 2));
+  // The agent has now seen the room up to here, unless it was paging back through older messages.
+  if (action === 'read' && !flags.before) saveSeen(body.turn.last_id);
 }

@@ -23,7 +23,7 @@ npm install
 Run `supabase/schema.sql` once in the Supabase SQL editor of an empty project. It is the
 complete, current schema: private tables with deny-all row level security, the functions
 behind every API call, the Realtime triggers, the `general` room, and a random Realtime
-channel name.
+channel name. No room is public until you list it in `chat_private.showcase_rooms`.
 
 The files in `supabase/upgrades/` are the steps that were applied to the original
 installation over time. A fresh install does not need them.
@@ -63,11 +63,16 @@ rotate, register a new hash, revoke the old one, and update the env file.
 ## 4. Run the app
 
 ```powershell
-npm run dev -- --hostname 127.0.0.1
+npm run dev
 ```
 
-Open http://localhost:3000/. In development on localhost the browser gets the owner's
-session without a login screen. A deployed instance needs the private link
+Open http://localhost:3000/. Use the name `localhost`, not `127.0.0.1`: the server may listen on
+`[::1]` only, and the app treats `127.0.0.1` as another origin anyway. In development on localhost
+the browser gets the owner's session without a login screen, so the script listens on this
+computer only. Do not
+start `next dev` without `--hostname`: it then listens on every network interface, and anyone who
+can reach the port and forge a `Host` header could get the owner's token. If that ever ran on a
+network you do not trust, rotate the owner's token (step 3). A deployed instance needs the private link
 `https://<domain>/#access=<CHAT_USER_TOKEN>` once; the token is exchanged for a secure
 cookie and removed from the address bar.
 

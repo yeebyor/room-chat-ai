@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { NextRequest } from "next/server";
 import type { Agent, ChatMessage, MessageList } from "@/lib/chat-types";
-import { ChatError, chatRpc, credential, errorResponse, jsonResponse, roomName, tokenMatches, userToken } from "@/lib/chat-server";
+import { ChatError, chatRpc, credential, errorResponse, jsonResponse, onThisComputer, roomName, tokenMatches, userToken } from "@/lib/chat-server";
 import { countFrom, firstInvolved, sessionUsage } from "@/lib/usage.mjs";
 
 export const runtime = "nodejs";
@@ -12,7 +12,6 @@ export const runtime = "nodejs";
 // from the log each tool keeps on this computer (src/lib/usage.mjs): the requests it made from the
 // start of its session when it was opened for this room, otherwise from when it joined the room. Only counts are returned, never text.
 // yeebyor only, and only while the server runs on this computer.
-const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
 const AGENTS: Agent[] = ["Claude", "GPT", "Gemini"];
 // An agent whose session log changed this recently is working, even if its presence lapsed.
 const WORKING_MS = 60_000;
@@ -42,7 +41,7 @@ export async function GET(request: NextRequest) {
   try {
     const token = credential(request);
     if (!tokenMatches(token, userToken())) throw new ChatError(403, "Only yeebyor can see this.");
-    if (!LOOPBACK.has(request.nextUrl.hostname)) throw new ChatError(403, "Token usage is only available while the server runs on this computer.");
+    if (!onThisComputer(request)) throw new ChatError(403, "Token usage is only available while the server runs on this computer.");
     const room = roomName(request.nextUrl.searchParams.get("room") ?? "general");
     // Presence says who is standing by or working in the room right now (reading it reports none).
     const { turn, messages } = await chatRpc<MessageList>("chat_read", { p_token: token, p_room: room, p_limit: 200, p_after: null, p_before: null, p_presence: null });

@@ -3,9 +3,10 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { scratch } from '../src/lib/hfma-local.mjs';
 
 const base = process.env.CHAT_BASE_URL || 'http://localhost:3000';
 const room = `verify-git-${randomUUID().slice(0, 8)}`;
@@ -173,6 +174,20 @@ fails(/yeebyor/, 'Claude', 'exception', String(c), '--reason', 'Boleh.');
 assert.equal(ok('yeebyor', 'exception', String(c), '--reason', 'Perbaikan kecil lintas modul, disetujui.').status, 'APPROVED');
 assert.equal(ok('Gemini', 'integrate', String(c)).status, 'DONE');
 
+// Moving another team's file into your own folder is a change outside your paths too: git alone
+// would report only the new path.
+const moved = ok('Claude', 'create', room, '--title', 'Pindahkan a', '--team', 'Gemini').id;
+ok('Gemini', 'claim', String(moved));
+assert.equal(plain(tree('Gemini'), 'mv', 'a/x.txt', 'c/x.txt').status, 0);
+assert.equal(plain(tree('Gemini'), 'commit', '-qm', 'move a file of team Claude').status, 0);
+ok('Gemini', 'submit', String(moved));
+ok('GPT', 'verify', String(moved));
+ok('GPT', 'review', String(moved), 'approve', '--file', notes);
+const movedOut = fails(null, 'Gemini', 'integrate', String(moved)).json;
+assert.equal(movedOut.status, 'BLOCKED');
+assert.match(movedOut.block_reason, /a\/x\.txt/);
+ok('Claude', 'cancel', String(moved), '--reason', 'Tidak jadi dipindahkan.');
+
 // A merge conflict with main sends the task back (Gemini already wrote a/x.txt on main).
 const d = ok('Claude', 'create', room, '--title', 'Isi a', '--team', 'Claude').id;
 ok('Claude', 'claim', String(d));
@@ -196,10 +211,24 @@ ok('GPT', 'submit', String(e));
 ok('Gemini', 'verify', String(e));
 ok('Gemini', 'review', String(e), 'approve', '--file', notes);
 assert.equal(ok('GPT', 'integrate', String(e)).status, 'DONE');
+// A checkout for a test run starts clean, also of ignored files an earlier run left there.
+appendFileSync(join(project, '.git', 'info', 'exclude'), 'left-by-a-run/\n');
+const leftover = join(`${project}.wt`, '_verify-Gemini', 'left-by-a-run');
+mkdirSync(leftover, { recursive: true });
+writeFileSync(join(leftover, 'out.js'), 'x');
+scratch(project, head(project, 'main'), 'Gemini');
+assert.ok(!existsSync(leftover), 'Ignored files do not survive into the next run');
 const failed = fails(/Tests failed on the result merged/, 'Claude', 'integrate', String(d)).json;
 assert.equal(failed.status, 'BLOCKED');
 assert.match(failed.block_reason, /2 times/);
 ok('Claude', 'cancel', String(d), '--reason', 'Desain a dan b bertentangan, dibatalkan.');
+// A task that needs a cancelled task can never start, so the orchestrator is told.
+const orphan = ok('Claude', 'create', room, '--title', 'Butuh d', '--team', 'GPT', '--depends', String(d)).id;
+const stuck = next('Claude');
+assert.equal(stuck.action, 'dependency_cancelled');
+assert.equal(stuck.task, orphan);
+assert.equal(next('GPT').action, 'waiting', 'Its team is not told to claim it');
+ok('Claude', 'cancel', String(orphan), '--reason', 'Dependensinya dibatalkan.');
 // Every task finished: others keep waiting until close (the orchestrator may still add
 // follow-ups), and a call from yeebyor in the room reaches them as owner_message.
 const rest = next('Gemini');
@@ -292,4 +321,4 @@ if (!process.env.KEEP_VERIFY_ROOMS) {
     assert.equal(removed?.status, 200, `cleanup of ${name}: ${removed ? await removed.text() : 'no connection'}`);
   }
 }
-console.log(JSON.stringify({ status: 'PASS', room, checks: 'setup, next and wait, invalid SVG, orchestrator handover, dirty tree, failing submit, own verify, integrate to main, moved branch, ownership exception, merge conflict, failing merged tests, escalation counters, main drift detection, review notes and feedback, late reviews and follow-ups, owner calls during work, no early idle, dirty project folder, close with command criteria' }));
+console.log(JSON.stringify({ status: 'PASS', room, checks: 'setup, next and wait, invalid SVG, orchestrator handover, dirty tree, failing submit, own verify, integrate to main, moved branch, ownership exception, a moved file counts at its old path, a clean checkout has no ignored leftovers, a cancelled dependency reaches the orchestrator, merge conflict, failing merged tests, escalation counters, main drift detection, review notes and feedback, late reviews and follow-ups, owner calls during work, no early idle, dirty project folder, close with command criteria' }));

@@ -2,6 +2,7 @@
 // sends the raw results to the database, so evidence is never typed by an agent.
 // Run with --env-file=<your credentials file>. Never print or pass tokens as arguments.
 import { readFileSync } from 'node:fs';
+import { request as httpRequest } from 'node:http';
 import { handoffReminder } from '../src/lib/handoff.mjs';
 import { guardedWake, wakeMessage } from '../src/lib/wake.mjs';
 import { checkedRun, dirtyFiles, environment, git, identity, scratch as scratchFor, teamTree, tryGit } from '../src/lib/hfma-local.mjs';
@@ -92,14 +93,31 @@ async function evidence(room, task, kind, commit, cwd, cmd, criterion) {
 
 // Owner actions that run git on this machine go through the server, so the CLI and
 // the room's buttons share one implementation (src/app/api/hfma/local/route.ts).
-async function local(action, args) {
-  const response = await fetch(new URL('/api/hfma/local', base), {
-    method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, ...args }), signal: AbortSignal.timeout(60 * 60 * 1000),
+// Plain http, not fetch: fetch gives up when no answer comes within five minutes, and closing runs
+// the project's tests first, which can take longer while the server carries on regardless.
+function local(action, args) {
+  const payload = JSON.stringify({ action, ...args });
+  return new Promise((resolve, reject) => {
+    const req = httpRequest(new URL('/api/hfma/local', base), {
+      method: 'POST', timeout: 60 * 60 * 1000,
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
+    }, (res) => {
+      let text = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => { text += chunk; });
+      res.on('end', () => {
+        try {
+          const body = JSON.parse(text);
+          // A close that did not pass answers with its runs too, so the caller can show them.
+          if (res.statusCode >= 400 && !body.results) reject(new Error(body.error || `HTTP ${res.statusCode}`));
+          else resolve(body);
+        } catch { reject(new Error(`HTTP ${res.statusCode}`)); }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => req.destroy(new Error('The server did not answer within an hour.')));
+    req.end(payload);
   });
-  const body = await response.json();
-  if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
-  return body;
 }
 
 // Compares main with the last hash HFMA recorded, and checks that nobody changed the
@@ -417,7 +435,8 @@ if (command === 'charter') {
   // Owner only, same as the board's "Close project": the server runs every command
   // criterion on main, then asks the database to close.
   const result = await local('close', { room: target, owner_criteria: flags.owner ? flags.owner.split(',').map((id) => id.trim()) : [] });
-  for (const item of result.results) console.error(`close ${item.id}: ${item.passed ? 'PASSED' : 'FAILED'} (exit ${item.exit_code}, ${item.duration_ms} ms)`);
+  for (const item of result.results ?? []) console.error(`close ${item.id}: ${item.passed ? 'PASSED' : 'FAILED'} (exit ${item.exit_code}${item.timed_out ? ', timeout' : ''}, ${item.duration_ms} ms)`);
+  if (result.error) console.error(result.error);
   print(result);
   if (!result.closed) process.exitCode = 1;
 } else {

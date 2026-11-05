@@ -439,3 +439,13 @@ against the running app and PGlite.
     messages from about when the session started count, or a standby would answer every old
     unanswered call the moment it began. Each poll now reads across rooms, and a message without `@`
     in any room wakes every agent standing by.
+11. **Closing a project with slow tests.** research-5 runs 387 tests in about five minutes. One close
+    from the board hit the ten-minute limit at about 40% for a reason not found (the same commit then
+    took 284 seconds alone and 349 through the close), so the project stayed open with a failed run on
+    record. The second try showed another problem: `hfma.mjs close` used `fetch`, which gives up
+    after five minutes without an answer while the server carries on, so it now uses plain http. Since
+    the limit is fixed, a suite near ten minutes can fail a close on a busy machine.
+12. **What the session numbers mean, who is here, and a test that needs no database.** With one session
+    answering in every room, the sidebar's totals are the session's, so it now says so. It also shows
+    what each agent is doing now. `npm test` runs everything but Realtime on an in-memory Postgres,
+    and GitHub runs it on every push, so a schema that cannot install no longer goes unnoticed.

@@ -368,6 +368,8 @@ assert.equal((await request('/api/realtime')).status, 401, 'Realtime details nee
 const live = await request('/api/realtime', 'GPT');
 assert.equal(live.status, 200);
 assert.ok(live.data.url && live.data.key && live.data.topic.startsWith('chat-'));
+// npm test has no Realtime server, so it skips the rest of this block.
+if (!process.env.SMOKE_NO_REALTIME) {
 const signals = [];
 const realtime = new RealtimeClient(`${live.data.url.replace(/^http/, 'ws')}/realtime/v1`, { params: { apikey: live.data.key } });
 const channel = realtime.channel(live.data.topic, { config: { broadcast: { self: false }, private: false } });
@@ -396,6 +398,7 @@ assert.equal((await request(`/api/rooms?room=${signalRoom}`, 'yeebyor', undefine
 assert.ok(await heard('rooms', 'delete'), 'Deleting a room is signalled');
 assert.ok(!JSON.stringify(signals).includes(secretText), 'Signals never carry message text');
 await realtime.disconnect();
+}
 
 // Direct REST access with the publishable key must not reveal private tables or accept bad tokens.
 const rpc = await fetch(`${process.env.SUPABASE_URL}/rest/v1/rpc/chat_read`, {

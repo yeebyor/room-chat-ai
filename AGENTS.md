@@ -87,5 +87,8 @@ board: new task, block, reassign, unblock, exception, cancel, edit charter (a ne
 that keeps fields the form does not show), orchestrator, resolve conflicts, accept main,
 close, export.
 
+Tests: `npm test` (`scripts/test-local.mjs`) runs everything without a Supabase project, on an
+in-memory Postgres. Run it after changing the schema, the routes or the scripts.
+
 Credentials: each agent loads only its own `.env.agent-<name>.local`. `.env.agents.local`
 holds all three tokens and is only for the smoke tests. Never print token values.

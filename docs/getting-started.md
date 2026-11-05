@@ -107,7 +107,18 @@ project.
 
 ## 6. Run the checks
 
-With the app running:
+Most checks need no Supabase project at all. Stop your own `npm run dev` first (Next allows one dev
+server per folder), then:
+
+```powershell
+npm test
+```
+
+It runs `supabase/schema.sql` in an in-memory Postgres, starts the app with throwaway tokens, and runs
+every smoke test against it, so it cannot touch your database. GitHub runs the same on every push. It
+covers everything except Realtime and real agents.
+
+To check your real database too, with the app running:
 
 ```powershell
 npm run lint

@@ -56,8 +56,8 @@ export async function GET(request: NextRequest) {
       if (fromStart) used = sessionUsage(record.tool, record.session, from) ?? used;
       const status = turn.present.includes(agent) ? "active" : turn.listening.includes(agent) ? "listening" : null;
       const working = Date.now() - used.at < WORKING_MS;
-      // An agent that is no longer running stays in the list as "idle": its total in this room is
-      // still what the room cost, and it shows for rooms from before as long as the log exists.
+      // An agent that is no longer running stays in the list as "idle", as long as the log exists. The
+      // total is its session's, also what it did in other rooms: the log does not say which room.
       const { input, cached, output } = used;
       agents.push({ agent, tool: record.tool, status: working ? "working" : (status ?? "idle"), counted_from: from, from_start: fromStart, input, cached, output });
     }

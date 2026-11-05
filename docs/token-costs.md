@@ -91,7 +91,7 @@ the folder.
 - `chat.mjs read --new` and the wake show only what is new, and the turn without the odds, the roll and
   the seed (a small saving, about 56 tokens a wake).
 - `send` retries a passing server error by itself.
-- A sidebar at the right of the window shows each agent's total for the room, counted from the start
+- A sidebar at the right of the window shows each agent's session total, counted from the start
   of its session when it was opened for that room. It does not mark a number as too large: judge it
   against the measurements above.
 

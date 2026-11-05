@@ -1,23 +1,35 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Turn } from "@/lib/chat-types";
 
-// Tokens each agent used for this room (the owner guide, "Seeing what the agents use"). The numbers
-// are read from each tool's own log on this computer (src/app/api/usage/route.ts), so the display
-// stays empty when the server does not run here or no agent has taken part in the room. A small
-// sidebar at the right of the window shows them; below the width where it fits, a strip in the middle
-// of the title bar does.
+// Who is standing by, and the tokens each agent's session has used (the owner guide, "Seeing what
+// the agents use"). The numbers are read from each tool's own log on this computer
+// (src/app/api/usage/route.ts), and a log does not say which room a request was for: one session
+// answers calls in any room, so its number covers all of them. A small sidebar at the right of the
+// window shows this; below the width where it fits, a strip in the middle of the title bar does.
 export type UsageRow = { agent: string; tool: string; status: "working" | "active" | "listening" | "idle"; from_start: boolean; input: number; cached: number; output: number };
 
 const TOOL = { claude: "Claude Code", codex: "Codex", antigravity: "Antigravity" } as Record<string, string>;
 const STATUS = { working: "working", active: "in the room", listening: "standing by", idle: "not running" } as const;
+const AGENTS = ["Claude", "GPT", "Gemini"];
 const REFRESH_MS = 10_000;
+
+// What each agent is doing now: the room's turn says who is here or standing by, the log who is working.
+function agentStates(turn: Turn | null, rows: UsageRow[]) {
+  return AGENTS.map((agent) => {
+    const status: UsageRow["status"] = rows.find((row) => row.agent === agent)?.status === "working" ? "working"
+      : turn?.present.includes(agent as Turn["present"][number]) ? "active"
+        : turn?.listening.includes(agent as Turn["listening"][number]) ? "listening" : "idle";
+    return { agent, status };
+  });
+}
 
 const short = (value: number) => value < 1000 ? String(value) : value < 1_000_000 ? `${(value / 1000).toFixed(value < 10_000 ? 1 : 0)}k` : `${(value / 1_000_000).toFixed(1)}M`;
 const full = (value: number) => value.toLocaleString("en-GB");
 const dotColor = (status: UsageRow["status"]) => status === "working" ? "bg-emerald-400" : status === "idle" ? "bg-white/15" : "bg-white/35";
 const detail = (row: UsageRow) =>
-  `${row.agent} (${TOOL[row.tool] ?? row.tool}), ${STATUS[row.status]}\nTotal in this room, counted from ${row.from_start ? "the start of its session (opened for this room, so starting up is included)" : "when it joined the room"}:\nnew input ${full(row.input)}, output ${full(row.output)}\nread again from cache ${full(row.cached)}`;
+  `${row.agent} (${TOOL[row.tool] ?? row.tool}), ${STATUS[row.status]}\nWhole session, also its work in other rooms, counted from ${row.from_start ? "the start of the session (so starting up is included)" : "when it joined this room"}:\nnew input ${full(row.input)}, output ${full(row.output)}\nread again from cache ${full(row.cached)}`;
 
 export function useUsage(room: string): UsageRow[] {
   // Kept with the room it belongs to, so switching rooms never shows the previous room's numbers.
@@ -42,17 +54,18 @@ export function useUsage(room: string): UsageRow[] {
 }
 
 // The strip in the middle of the title bar, for windows too narrow for the sidebar.
-export function UsageStrip({ rows }: { rows: UsageRow[] }) {
-  if (!rows.length) return null;
+export function UsageStrip({ rows, turn }: { rows: UsageRow[]; turn: Turn | null }) {
+  const shown = agentStates(turn, rows).filter(({ agent, status }) => status !== "idle" || rows.some((row) => row.agent === agent));
+  if (!shown.length) return null;
   return (
-    <ul aria-label="Tokens each agent used in this room in total" className="pointer-events-none absolute left-1/2 top-0 hidden h-full -translate-x-1/2 items-center gap-4 font-mono text-[11px] text-white/50 sm:flex lg:hidden">
-      {rows.map((row) => {
-        const total = row.input + row.output;
+    <ul aria-label="Agents and the tokens of their sessions" className="pointer-events-none absolute left-1/2 top-0 hidden h-full -translate-x-1/2 items-center gap-4 font-mono text-[11px] text-white/50 sm:flex lg:hidden">
+      {shown.map(({ agent, status }) => {
+        const row = rows.find((item) => item.agent === agent);
         return (
-          <li key={row.agent} className={`pointer-events-auto flex items-center gap-1.5 whitespace-nowrap ${row.status === "idle" ? "opacity-50" : ""}`} title={detail(row)}>
-            <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${dotColor(row.status)}`} />
-            <span>{row.agent}</span>
-            <span className="tabular-nums text-white/80">{short(total)}</span>
+          <li key={agent} className={`pointer-events-auto flex items-center gap-1.5 whitespace-nowrap ${status === "idle" ? "opacity-50" : ""}`} title={row ? detail(row) : `${agent}, ${STATUS[status]}`}>
+            <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${dotColor(status)}`} />
+            <span>{agent}</span>
+            {row && <span className="tabular-nums text-white/80">{short(row.input + row.output)}</span>}
           </li>
         );
       })}
@@ -61,11 +74,21 @@ export function UsageStrip({ rows }: { rows: UsageRow[] }) {
 }
 
 // The small sidebar at the right of the window, as tall as the room list at the left.
-export function UsagePanel({ rows }: { rows: UsageRow[] }) {
+export function UsagePanel({ rows, turn }: { rows: UsageRow[]; turn: Turn | null }) {
   return (
-    <aside aria-label="Token usage" className="relative z-10 hidden shrink-0 flex-col border-l border-white/15 lg:flex lg:w-44">
+    <aside aria-label="Agents and token usage" className="relative z-10 hidden shrink-0 flex-col border-l border-white/15 lg:flex lg:w-44">
       <div className="chat-scroll min-h-0 flex-1 overflow-y-auto p-3 pt-5">
-        <p className="px-1 pb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Tokens</p>
+        <p className="px-1 pb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Agents</p>
+        <ul className="mb-4 space-y-1 px-1">
+          {agentStates(turn, rows).map(({ agent, status }) => (
+            <li key={agent} className={`flex items-center gap-1.5 text-xs ${status === "idle" ? "text-zinc-500" : "text-zinc-200"}`}>
+              <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotColor(status)}`} />
+              <span className="min-w-0 flex-1 truncate">{agent}</span>
+              <span className="shrink-0 text-[11px] text-zinc-500">{STATUS[status]}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="px-1 pb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Session tokens</p>
         {rows.length ? (
           <ul className="space-y-1.5">
             {rows.map((row) => {

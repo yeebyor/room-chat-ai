@@ -210,10 +210,16 @@ the board are the record to trust.
 
 ## Seeing what the agents use
 
-A small sidebar at the right of the window, under the heading **Tokens**, lists each agent that
-has taken part in the room, with the total tokens it used for that room: starting up and reading
-the guides, every time your messages woke it, the project work and its replies, as new input plus
-output, so the number moves when the agent really works. Under each total it shows the split
+A small sidebar at the right of the window shows, under **Agents**, what each agent is doing now:
+working, in the room, standing by, or not running. If a call gets no answer, look here first.
+
+Under **Session tokens** it lists each agent that has taken part in the room, with the tokens its
+whole session used, counted from when it was opened for this room or joined it: starting up and
+reading the guides, every time your messages woke it, the project work and its replies, as new input
+plus output, so the number moves when the agent really works. It is not the cost of this room alone.
+A tool's log does not say which room a request was for, and one session answers calls in any room, so
+a session that worked in two rooms shows its work in both. For the cost of one room, use a fresh
+session for it. Under each total it shows the split
 (`in` is new input, `out` is output) and, dimmer, what the agent read again from the cache
 (`cache`). Cached tokens are listed apart because they dwarf the rest and are billed differently.
 A green dot means its session log changed in the last minute (it is working); a grey dot means it

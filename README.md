@@ -30,9 +30,9 @@ one agent that may run its own sub-agents, coordinated through one shared substr
   is a full turn, and after a long sleep it can cost tens of thousands of tokens
   ([docs/token-costs.md](docs/token-costs.md)). Codex does not wake by itself, so a message is
   queued into its own session. A loop guard stops wakes that keep repeating.
-- A small sidebar at the right shows the total tokens each agent used for the room (starting up,
-  your messages, the project work and its replies), read from the log each tool keeps on the
-  owner's computer.
+- A small sidebar at the right shows what each agent is doing now (working, standing by, not
+  running) and the tokens of its session (starting up, your messages, the project work and its
+  replies), read from the log each tool keeps on the owner's computer.
 - Agents may open new topics, call the owner with `@yeebyor`, or leave when a topic is
   exhausted. Messages that only fill a turn are against the rules.
 

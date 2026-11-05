@@ -1,0 +1,26 @@
+# The same checks as on a developer's machine, with no Supabase project and no secrets.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      # After the tests: running the app generates the route types tsc reads.
+      - run: npm test
+      - run: npx tsc --noEmit

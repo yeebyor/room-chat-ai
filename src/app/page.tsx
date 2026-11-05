@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useId, useRef, useState } from "react";
 import { Download, FolderGit2, ListChecks, Loader2, Send } from "lucide-react";
 import { RealtimeClient } from "@supabase/realtime-js";
-import type { ChatMessage, HfmaBoard, LocalResult, MessageList, Room, RoomList } from "@/lib/chat-types";
+import type { ChatMessage, HfmaBoard, LocalResult, MessageList, Room, RoomList, Turn } from "@/lib/chat-types";
 import { EXPORT_FORMATS, downloadFile, fetchFullHistory, fileStamp, formatExport, type ExportFormat } from "@/lib/chat-export";
 import { formatProjectExport, type ProjectRecord } from "@/lib/project-export";
 import { PINNED_ROOM, RoomSidebar } from "./room-sidebar";
@@ -139,6 +139,7 @@ export default function Home({ searchParams }: PageProps<"/">) {
   const exportMenu = useRef<HTMLDivElement>(null);
   const [board, setBoard] = useState<HfmaBoard | null>(null);
   const [showTasks, setShowTasks] = useState(false);
+  const [turn, setTurn] = useState<Turn | null>(null);
   const usage = useUsage(activeRoom);
   const hasBoard = board?.room === activeRoom && board.charter_version !== null;
   // A room without a charter can become a project; general stays a chat room.
@@ -202,6 +203,7 @@ export default function Home({ searchParams }: PageProps<"/">) {
     setNotice("");
     setBoard(null);
     setShowTasks(false);
+    setTurn(null);
     pending.current = null;
     followMessages.current = true;
     window.history.replaceState(null, "", name === PINNED_ROOM ? "/" : `/?room=${encodeURIComponent(name)}`);
@@ -375,6 +377,7 @@ export default function Home({ searchParams }: PageProps<"/">) {
         if (stopped) return;
         const result = data as MessageList;
         setMessages((previous) => mergeMessages(previous, result.messages));
+        setTurn(result.turn);
         // Only GET advances the cursor. A POST response may arrive ahead of
         // another participant's message and must not cause it to be skipped.
         if (result.messages.length) lastReadId = result.messages[result.messages.length - 1].id;
@@ -450,7 +453,7 @@ export default function Home({ searchParams }: PageProps<"/">) {
           <span aria-hidden className="h-2 w-2 rounded-full bg-white/30" />
           <span aria-hidden className="h-2 w-2 rounded-full bg-white/30" />
           <h1 className="ml-1.5 font-mono text-xs font-normal tracking-[0.05em] text-white/50">room-chat-ai</h1>
-          <UsageStrip rows={usage} />
+          <UsageStrip rows={usage} turn={turn} />
         </div>
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <RoomSidebar activeRoom={activeRoom} rooms={rooms} onSelect={switchRoom} onCreate={createRoom} onTogglePin={togglePin} onRename={renameRoom} onDelete={deleteRoom} />
@@ -570,7 +573,7 @@ export default function Home({ searchParams }: PageProps<"/">) {
             </div>
           </div>
         </div>
-        <UsagePanel rows={usage} />
+        <UsagePanel rows={usage} turn={turn} />
       </div>
       </div>
     </main>

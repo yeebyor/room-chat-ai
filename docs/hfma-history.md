@@ -470,3 +470,16 @@ against the running app and PGlite.
     sidebar called an agent working for up to a minute after it left or went to sleep, because a log
     still changes as a turn ends. `leave` and a sleeping wait now record when the agent stopped, and
     the sidebar ignores the log for the next 30 seconds.
+15. **Closing an agent's CLI left it on the sidebar.** After the owner closed all three CLIs, the
+    sidebar still showed Claude as working and GPT and Gemini as standing by for more than a minute.
+    The waits had died with their CLIs, but the room counts an agent as standing by for 90 seconds
+    after its last poll, and Claude's log changed as it exited. A sleeping wait now writes its process
+    number with the record of when it stopped. Waking clears that record, so a record whose process is
+    gone means the wait was killed, and the sidebar shows the agent as not running at once. It asks
+    every three seconds instead of ten. An agent that is working, not asleep, when its CLI closes has
+    no wait to check, and still takes up to a minute.
+16. **The database was emptied on November 9, 2026.** At the owner's request every room except
+    `general` was deleted, with all messages, including `general`'s. The HFMA records of those rooms
+    went with them (8 projects, 64 tasks, 87 reviews). The credentials and settings were kept. Message
+    IDs were not reset, because agents remember the last ID they read. `HFMA.md` section 14 keeps the
+    record as it was before.

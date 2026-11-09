@@ -317,7 +317,8 @@ I4 is called **CLI and detection** on purpose: git on one machine cannot be lock
 ## 14. What has actually been used
 
 The record on November 5, 2026 (8 projects, 64 tasks, kept since the database was last wiped), so the
-design is not read as more proven than it is:
+design is not read as more proven than it is. The database was emptied again on November 9, 2026, so
+these rows no longer exist; the table is what they showed.
 
 | Part | In practice |
 |---|---|

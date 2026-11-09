@@ -8,17 +8,20 @@ import type { Turn } from "@/lib/chat-types";
 // (src/app/api/usage/route.ts), and a log does not say which room a request was for: one session
 // answers calls in any room, so its number covers all of them. A small sidebar at the right of the
 // window shows this; below the width where it fits, a strip in the middle of the title bar does.
-export type UsageRow = { agent: string; tool: string; status: "working" | "active" | "listening" | "idle"; from_start: boolean; input: number; cached: number; output: number };
+// gone: the agent's sleeping wait was killed, so its CLI was closed; the room may say otherwise for 90 seconds.
+export type UsageRow = { agent: string; tool: string; status: "working" | "active" | "listening" | "idle"; gone?: boolean; from_start: boolean; input: number; cached: number; output: number };
 
 const TOOL = { claude: "Claude Code", codex: "Codex", antigravity: "Antigravity" } as Record<string, string>;
 const STATUS = { working: "working", active: "in the room", listening: "standing by", idle: "not running" } as const;
 const AGENTS = ["Claude", "GPT", "Gemini"];
-const REFRESH_MS = 10_000;
+const REFRESH_MS = 3_000;
 
-// What each agent is doing now: the room's turn says who is here or standing by, the log who is working.
+// What each agent is doing now: the room's turn says who is here or standing by, the log who is working,
+// and a killed wait who has gone.
 function agentStates(turn: Turn | null, rows: UsageRow[]) {
   return AGENTS.map((agent) => {
-    const status: UsageRow["status"] = rows.find((row) => row.agent === agent)?.status === "working" ? "working"
+    const row = rows.find((item) => item.agent === agent);
+    const status: UsageRow["status"] = row?.gone ? "idle" : row?.status === "working" ? "working"
       : turn?.present.includes(agent as Turn["present"][number]) ? "active"
         : turn?.listening.includes(agent as Turn["listening"][number]) ? "listening" : "idle";
     return { agent, status };

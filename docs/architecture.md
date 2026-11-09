@@ -128,7 +128,10 @@ conversation again, so it can be cheap or cost tens of thousands of tokens
   `working` means the session's log changed in the last minute, unless the session is resting: `leave`
   and a sleeping wait write when it stopped (`room-chat-ai-resting-<agent>.json` in the temp folder),
   and what the log writes in the next 30 seconds is the end of its turn. A later change counts as
-  work, such as a task given in the agent's CLI. A wait that ends clears the record.
+  work, such as a task given in the agent's CLI. A wait that ends clears the record. A sleeping wait
+  also writes its process number there: closing the agent's CLI kills the wait before it can clear
+  the record, so a record whose process is gone means the agent is not running, whatever the log or
+  the room's 90-second standby window say. The sidebar asks every three seconds.
 - A record per agent, room and session (also in the temp folder) remembers the last message
   an agent was shown, so a woken agent only sees what is new. With `--wake` the background
   run does not mark messages as seen, because the woken agent reads them with its next `wait`.

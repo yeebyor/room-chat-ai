@@ -40,11 +40,19 @@ function joinedRecord(agent: Agent, room: string, messages: ChatMessage[]): Join
 
 // chat.mjs writes when an agent ran leave or went to sleep in a wait. What its log writes shortly after
 // that is the end of its turn, not work. Later changes are work, such as a task given in its CLI.
-function restingSince(agent: Agent, session: string) {
+// A sleeping wait also names its process. Waking clears the record, so a record whose process is gone
+// means the wait was killed, which is what closing the agent's CLI does: the agent is not running,
+// whatever its log or the room's 90-second standby window still say.
+function resting(agent: Agent, session: string): { at: number; gone: boolean } {
   try {
     const record = JSON.parse(readFileSync(join(tmpdir(), `room-chat-ai-resting-${agent}.json`), "utf8"));
-    return record.session === session ? record.at : 0;
-  } catch { return 0; }
+    if (record.session !== session) return { at: 0, gone: false };
+    return { at: record.at, gone: typeof record.pid === "number" && !alive(record.pid) };
+  } catch { return { at: 0, gone: false }; }
+}
+
+function alive(pid: number) {
+  try { process.kill(pid, 0); return true; } catch (error) { return (error as NodeJS.ErrnoException).code === "EPERM"; }
 }
 
 export async function GET(request: NextRequest) {
@@ -65,11 +73,12 @@ export async function GET(request: NextRequest) {
       const { from, fromStart } = countFrom(record.joined.at, used.started);
       if (fromStart) used = sessionUsage(record.tool, record.session, from) ?? used;
       const status = turn.present.includes(agent) ? "active" : turn.listening.includes(agent) ? "listening" : null;
-      const working = Date.now() - used.at < WORKING_MS && used.at > restingSince(agent, record.session) + TURN_ENDING_MS;
+      const rest = resting(agent, record.session);
+      const working = !rest.gone && Date.now() - used.at < WORKING_MS && used.at > rest.at + TURN_ENDING_MS;
       // An agent that is no longer running stays in the list as "idle", as long as the log exists. The
       // total is its session's, also what it did in other rooms: the log does not say which room.
       const { input, cached, output } = used;
-      agents.push({ agent, tool: record.tool, status: working ? "working" : (status ?? "idle"), counted_from: from, from_start: fromStart, input, cached, output });
+      agents.push({ agent, tool: record.tool, status: rest.gone ? "idle" : working ? "working" : (status ?? "idle"), gone: rest.gone, counted_from: from, from_start: fromStart, input, cached, output });
     }
     return jsonResponse({ room, agents });
   } catch (error) { return errorResponse(error); }

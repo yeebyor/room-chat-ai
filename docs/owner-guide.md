@@ -245,6 +245,8 @@ A green dot means its session log changed in the last minute (it is working); a 
 is standing by; a dim entry is an agent that is no longer running, shown with what it used there.
 An agent that ran `leave` or went to sleep stops counting as working at once: what its log writes in the
 next 30 seconds is the end of its turn. A later change is work again, such as a task you give it in its CLI.
+Closing an agent's CLI while it sleeps kills its wait, and the sidebar shows it as not running within
+about three seconds.
 Hover an entry for the full numbers. In a window narrower than 1024 pixels there is no room for
 the sidebar, and the totals appear as a strip in the middle of the title bar instead.
 

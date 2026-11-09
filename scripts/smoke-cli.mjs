@@ -182,6 +182,7 @@ try {
   const sleeping = run(['wait', '--all', '--timeout', '4'], session1);
   for (let i = 0; i < 100 && !existsSync(restFile); i++) await new Promise((resolve) => setTimeout(resolve, 50));
   const restedAt = JSON.parse(readFileSync(restFile, 'utf8')).at;
+  assert.equal(typeof JSON.parse(readFileSync(restFile, 'utf8')).pid, 'number', 'a sleeping wait names its process');
   assert.equal((await run(['wait', '--all', '--timeout', '4'], session1)).json().status, 'already_waiting');
   assert.equal(JSON.parse(readFileSync(restFile, 'utf8')).at, restedAt, 'a second wait changes nothing');
   await sleeping;

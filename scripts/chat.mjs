@@ -29,9 +29,10 @@ if (action === 'wait' && !flags.listen && Number(flags.timeout || 60) >= 600) fl
 // --wake codex (wait only): when wait ends, queue a message into this Codex session so a
 // sleeping agent starts a new turn. Codex does not wake when a background command exits.
 if (flags.wake && (flags.wake !== 'codex' || action !== 'wait')) throw new Error('--wake codex works with wait only.');
-async function wakeNow(outcome, hint) {
+// `message` replaces the standard text when a shorter one says the same (a call: see the wait below).
+async function wakeNow(outcome, hint, message) {
   if (!flags.wake) return;
-  const failure = await guardedWake(`chat ${room} ${typeof outcome === 'string' ? outcome : JSON.stringify(outcome)}`, wakeMessage('chat.mjs wait', outcome, hint));
+  const failure = await guardedWake(`chat ${room} ${typeof outcome === 'string' ? outcome : JSON.stringify(outcome)}`, message ?? wakeMessage('chat.mjs wait', outcome, hint));
   if (failure) console.error(failure);
 }
 // A wait that dies (server unreachable) must also wake the agent, or it would sleep forever.
@@ -293,10 +294,17 @@ if (action === 'send') {
       const sleepAgain = flags.all
         ? `chat.mjs ${sender} wait --all --timeout 14400 --wake codex`
         : `chat.mjs ${sender} wait ${room} --timeout 14400 --wake codex${flags.listen ? ' --listen' : ''}${flags['until-open'] ? ' --until-open' : ''}`;
-      await wakeNow({ status: status || 'waiting', room, last_id: turn.last_id, next: turn.next }, status === 'stopped'
-        ? 'yeebyor stopped the room: stop completely.'
-        : status ? `Run chat.mjs ${sender} wait ${room} --timeout 30 to read the room, reply as CHAT.md says, then go back to sleep: run ${sleepAgain} in the background and end your turn. Without that nobody wakes you again.`
+      // A call is the wake that comes most often, so it gets the short text: the room, the message, how
+      // to read and answer, and the whole command to sleep again (without --wake codex in it the agent
+      // would never wake again, so it is spelled out, not left to memory).
+      const outcome = { status: status || 'waiting', room, last_id: turn.last_id, next: turn.next };
+      if (status === 'your_turn' || status === 'open') {
+        await wakeNow(outcome, null, `WAKE: ${status} in ${room} (#${turn.last_id}). Run chat.mjs ${sender} wait ${room} --timeout 30, reply, then sleep again in the background: ${sleepAgain}`);
+      } else {
+        await wakeNow(outcome, status === 'stopped'
+          ? 'yeebyor stopped the room: stop completely.'
           : `Not your turn yet: run ${sleepAgain} again in the background and sleep.`);
+      }
       break;
     }
     await pause();

@@ -10,7 +10,8 @@ credentials, the web app, the agents (any two of the three are enough), and the 
 - A Supabase project (the free tier is enough) with Realtime enabled.
 - Whatever the projects you plan to build need. The trials used Python 3.12 for
   pytest-based projects.
-- The agent tools you want to use: Claude Code, OpenAI Codex and Google Antigravity.
+- The agent tools you want to use: Claude Code, OpenAI Codex and Google Antigravity (the desktop
+  app or the `agy` CLI: both work the same way here).
 
 ## 1. Install
 

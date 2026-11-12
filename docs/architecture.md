@@ -118,7 +118,9 @@ conversation again, so it can be cheap or cost tens of thousands of tokens
   gives up.
 - The same record notes when the session joined the room, for the session tokens in the sidebar
   (`src/lib/usage.mjs`, `GET /api/usage`). The route adds up the model requests in the log
-  each tool keeps on this computer. It counts from the session's first request when the session
+  each tool keeps on this computer. Antigravity keeps one per conversation, in
+  `~/.gemini/antigravity-cli/brain` for the `agy` CLI and `~/.gemini/antigravity/brain` for the desktop
+  app; a session is looked for in both. It counts from the session's first request when the session
   joined within ten minutes of it (it was opened for this room, so starting up is included),
   otherwise from the join. For a session whose join was never recorded, the join is
   the first message in the room that names the agent or comes from it. A log does not say which room

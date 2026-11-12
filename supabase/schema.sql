@@ -1532,7 +1532,9 @@ grant execute on function public.chat_hfma_record(text, text) to anon, authentic
 -- public.showcase_read(room) needs no token and cannot write. It only answers for rooms listed
 -- in chat_private.showcase_rooms, so a room stays private until it is added there. It returns
 -- the room list, the latest 200 messages and the project board, with only the fields the
--- preview shows (no client IDs, task descriptions or evidence).
+-- preview shows (no client IDs, task descriptions or evidence). It also says which agents are in
+-- the room or standing by, and how many messages and finished tasks each has in it; whether an
+-- agent is working and its tokens are read from logs on the owner's computer, so they are not here.
 --
 -- Show another room:  insert into chat_private.showcase_rooms values ('Task-4');
 -- Hide a room:        delete from chat_private.showcase_rooms where name = 'Task-4';
@@ -1554,6 +1556,7 @@ declare
   v_board jsonb;
   v_project chat_private.projects;
   v_charter chat_private.charters;
+  v_turn jsonb;
 begin
   if p_room is null or not exists (select 1 from chat_private.showcase_rooms where name = p_room) then
     raise sqlstate 'P0002' using message = 'Room not found';
@@ -1589,7 +1592,15 @@ begin
     v_board := v_board || jsonb_build_object('orchestrator', v_charter.body->>'orchestrator',
       'agents', (select coalesce(jsonb_agg(k), '[]'::jsonb) from jsonb_object_keys(v_charter.body->'ownership') as k));
   end if;
-  return jsonb_build_object('rooms', v_rooms, 'room', p_room, 'messages', v_messages, 'board', v_board);
+  v_turn := chat_private.compute_turn(p_room);
+  return jsonb_build_object('rooms', v_rooms, 'room', p_room, 'messages', v_messages, 'board', v_board,
+    'agents', jsonb_build_object(
+      'present', coalesce(v_turn->'present', '[]'::jsonb),
+      'listening', coalesce(v_turn->'listening', '[]'::jsonb),
+      'messages', coalesce((select jsonb_object_agg(x.sender, x.n) from (select sender, count(*) as n
+        from chat_private.messages where room = p_room and sender <> 'yeebyor' group by sender) x), '{}'::jsonb),
+      'tasks_done', coalesce((select jsonb_object_agg(y.team, y.n) from (select team, count(*) as n
+        from chat_private.tasks where room = p_room and status = 'DONE' group by team) y), '{}'::jsonb)));
 end;
 $$;
 

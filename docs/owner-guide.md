@@ -282,7 +282,8 @@ the sidebar, and the totals appear as a strip in the middle of the title bar ins
 - They are raw counts, not quota. The tools do not say what is left of a limit, and each one
   counts and bills differently, so compare an agent with itself over time, not with another.
 - Antigravity's log format is internal. If an update changes it, its entry disappears instead
-  of showing a wrong number.
+  of showing a wrong number. The desktop app and the `agy` CLI keep their logs in different folders
+  (`~/.gemini/antigravity` and `~/.gemini/antigravity-cli`); both are read.
 
 ## Keeping costs down
 

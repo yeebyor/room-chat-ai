@@ -50,6 +50,12 @@ writeFileSync(join(agyDir, 'transcript_full.jsonl'),
   + JSON.stringify({ step_index: 3, created_at: iso(4), input_tokens: 20, cache_read_tokens: 100, output_tokens: 7 }) + '\n');
 assert.deepEqual(figures(sessionUsage('antigravity', 'agy-conversation-1', 0, home)), { input: 120, cached: 100, output: 12 });
 assert.deepEqual(figures(sessionUsage('antigravity', 'agy-conversation-1', at(3), home)), { input: 20, cached: 100, output: 7 });
+// The desktop app keeps its conversations in antigravity instead of antigravity-cli, with the same layout.
+const appDir = join(home, '.gemini', 'antigravity', 'brain', 'app-conversation-1', '.system_generated', 'logs');
+mkdirSync(appDir, { recursive: true });
+writeFileSync(join(appDir, 'transcript_full.jsonl'),
+  JSON.stringify({ step_index: 1, created_at: iso(1), input_tokens: 300, cache_read_tokens: 50, output_tokens: 9 }) + '\n');
+assert.deepEqual(figures(sessionUsage('antigravity', 'app-conversation-1', 0, home)), { input: 300, cached: 50, output: 9 }, 'the desktop app');
 
 // The first request of a session, and where the count for a room starts.
 assert.equal(sessionUsage('claude', 'claude-session-1', 0, home).started, at(2), 'the time of the first request');
@@ -85,4 +91,4 @@ assert.deepEqual(sessionOf({ CLAUDE_CODE_SESSION_ID: 'b' }), { tool: 'claude', s
 assert.deepEqual(sessionOf({ ANTIGRAVITY_CONVERSATION_ID: 'c' }), { tool: 'antigravity', session: 'c' });
 assert.equal(sessionOf({}), null);
 
-console.log(JSON.stringify({ status: 'PASS', checks: 'Claude Code (dedupe by message, cache writes as input, since a time, partial line, replaced log), Codex (cumulative totals, cold request, repeated total), Antigravity (per step, since a time), unsafe sessions, the first request and where the count for a room starts, when a room first involved an agent, tool detection' }));
+console.log(JSON.stringify({ status: 'PASS', checks: 'Claude Code (dedupe by message, cache writes as input, since a time, partial line, replaced log), Codex (cumulative totals, cold request, repeated total), Antigravity (per step, since a time, the desktop app folder), unsafe sessions, the first request and where the count for a room starts, when a room first involved an agent, tool detection' }));

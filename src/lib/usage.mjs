@@ -2,7 +2,7 @@
 //
 // The server never calls a model, so the only place the numbers exist is each tool's session
 // log: Claude Code (~/.claude/projects/*/<session>.jsonl), Codex (~/.codex/sessions/**/rollout-*-
-// <thread>.jsonl) and Antigravity (~/.gemini/antigravity-cli/brain/<conversation>/...). Only the
+// <thread>.jsonl) and Antigravity (~/.gemini/antigravity-cli/brain/<conversation>/... for the CLI, antigravity/ for the app). Only the
 // token counts and their times are read, never the text. In all three the figures mean the same:
 //   input   = tokens the model read for the first time (including cache writes)
 //   cached  = tokens it read again from the prompt cache
@@ -50,9 +50,14 @@ function findCodex(session, home) {
   return walk(join(home, '.codex', 'sessions'), 4);
 }
 
+// The CLI (agy) keeps its conversations in antigravity-cli, the Antigravity app in antigravity, with
+// the same layout. A session is in one of them.
 function findAntigravity(session, home) {
-  const file = join(home, '.gemini', 'antigravity-cli', 'brain', session, '.system_generated', 'logs', 'transcript_full.jsonl');
-  return existsSync(file) ? file : null;
+  for (const folder of ['antigravity-cli', 'antigravity']) {
+    const file = join(home, '.gemini', folder, 'brain', session, '.system_generated', 'logs', 'transcript_full.jsonl');
+    if (existsSync(file)) return file;
+  }
+  return null;
 }
 
 // Reads the complete lines appended since the last call. state.offset is the start of the first
